@@ -14,7 +14,6 @@ import java.util.ArrayList;
 
 public abstract class HorizontalAbsListView extends ViewGroup {
     private int mFirstAdapterItemIndex;
-    private int mFirstItemOffset;
     private ArrayList<ItemInfo> mItems;
     private final Scroller mScroller;
     private final GestureDetector mGestureDetector;
@@ -97,7 +96,6 @@ public abstract class HorizontalAbsListView extends ViewGroup {
         removeAllViewsInLayout();
 
         mFirstAdapterItemIndex = 0;
-        mFirstItemOffset = 0;
         mItems = new ArrayList<ItemInfo>();
         requestLayout();
     }
@@ -174,9 +172,16 @@ public abstract class HorizontalAbsListView extends ViewGroup {
         int paddingTop = getPaddingTop();
         int viewWidthWithoutPadding = getWidth() - paddingLeft - getPaddingRight();
         int viewHeightWithoutPadding = getHeight() - paddingTop - getPaddingBottom();
-        int currentRight = mFirstItemOffset;
 
         ArrayList<ItemInfo> items = mItems;
+        int firstItemOffset;
+        if (items.size() == 0)
+            firstItemOffset = 0;
+        else
+            firstItemOffset = items.get(0).getLeft() - paddingLeft;
+        int currentRight = firstItemOffset;
+
+
         int adapterItemsCount = getItemInfoCount(mAdapter);
         int firstAdapterItemIndex = mFirstAdapterItemIndex;
         int currentIndex = firstAdapterItemIndex;
@@ -199,7 +204,7 @@ public abstract class HorizontalAbsListView extends ViewGroup {
         }
 
         if (currentRight < viewWidthWithoutPadding) {
-            int currentLeft = mFirstItemOffset;
+            int currentLeft = firstItemOffset;
             int itemsFullWidth = currentRight - currentLeft;
             while (  itemsFullWidth < viewWidthWithoutPadding
                   && firstAdapterItemIndex > 0) {
@@ -216,13 +221,10 @@ public abstract class HorizontalAbsListView extends ViewGroup {
             mFirstAdapterItemIndex = firstAdapterItemIndex;
 
             int horizontalOffset;
-            if (itemsFullWidth < viewWidthWithoutPadding) {
+            if (itemsFullWidth < viewWidthWithoutPadding)
                 horizontalOffset = -currentLeft;
-                mFirstItemOffset = 0;
-            } else {
+            else
                 horizontalOffset = viewWidthWithoutPadding - currentRight;
-                mFirstItemOffset = viewWidthWithoutPadding - itemsFullWidth;
-            }
             for(int counterItem = 0; counterItem < items.size(); counterItem++)
                 items.get(counterItem).offsetViews(horizontalOffset);
         } else
