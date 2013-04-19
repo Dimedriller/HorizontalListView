@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+    <Button
+            android:id="@+id/LayoutDecrease"
+            android:layout_width="200dip"
+            android:layout_height="50dip"
+            android:layout_gravity="left|top"
+            android:text="Decrease" />
+    <Button
+            android:id="@+id/LayoutIncrease"
+            android:layout_width="200dip"
+            android:layout_height="50dip"
+            android:layout_gravity="right|top"
+            android:text="Increase" />
+    <com.hlv.horizontallistview.HorizontalListView
+            android:id="@+id/List"
+            android:layout_width="300dip"
+            android:layout_height="match_parent"
+            android:layout_gravity="left|bottom"
+            android:layout_marginTop="50dip" />
+</FrameLayout>
+
