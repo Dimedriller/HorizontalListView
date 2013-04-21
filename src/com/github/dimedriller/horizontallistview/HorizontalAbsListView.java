@@ -219,8 +219,51 @@ public abstract class HorizontalAbsListView extends ViewGroup {
     }
 
     private boolean moveChildrenRight(int dX) {
+        int paddingLeft = getPaddingLeft();
+        int paddingTop = getPaddingTop();
+        int viewWidthWithoutPadding = getWidthWithoutPaddings();
+        int viewHeightWithoutPadding = getHeight() - paddingTop - getPaddingBottom();
+
+        int firstItemX = getFirstItemOffset();
+
+        ArrayList<ItemInfo> items = mItems;
+        int firstAdapterItemIndex = mFirstAdapterItemIndex;
+        int nextItemIndex = firstAdapterItemIndex - 1;
+        int currentLeft = firstItemX - dX;
+
+        while (  currentLeft >= 0
+              && nextItemIndex >= 0) {
+            ItemInfo newItem = getItemInfo(nextItemIndex);
+            items.add(0, newItem);
+            newItem.addItemViews(this);
+            newItem.measureViews(viewWidthWithoutPadding, viewHeightWithoutPadding);
+            newItem.layoutViews(paddingLeft + currentLeft + dX - newItem.getWidth(), paddingTop, paddingTop + viewHeightWithoutPadding);
+            currentLeft -= newItem.getWidth();
+            nextItemIndex--;
+        }
+        firstAdapterItemIndex = nextItemIndex + 1;
+        mFirstAdapterItemIndex = firstAdapterItemIndex;
+
+        boolean forceFinishing;
+        if (currentLeft > 0) {
+            forceFinishing = true;
+            dX += currentLeft;
+        } else
+            forceFinishing = false;
+
+        int currentRight = firstItemX - dX + getDisplayItemsFullWidth();
+        ItemInfo itemToRemove = items.get(items.size() - 1);
+        while (currentRight - itemToRemove.getWidth() > viewWidthWithoutPadding) {
+            currentRight -= itemToRemove.getWidth();
+            items.remove(items.size() - 1);
+            itemToRemove.removeItemViews(this);
+            recycleItemInfo(firstAdapterItemIndex + items.size(), itemToRemove);
+            itemToRemove = items.get(items.size() - 1);
+        }
+
         shiftItems(-dX);
-        return false;
+
+        return forceFinishing;
     }
 
     private void moveChildren() {
