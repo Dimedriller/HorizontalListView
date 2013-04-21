@@ -1,16 +1,18 @@
-package com.hlv.horizontallistview;
+package com.github.dimedriller.horizontallistview;
+
+import java.util.ArrayList;
 
 import android.content.Context;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.util.SparseArray;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Adapter;
-import android.widget.ArrayAdapter;
-import android.widget.Scroller;
 
-import java.util.ArrayList;
+import com.github.dimedriller.widget.Scroller;
+import com.github.dimedriller.widget.GestureDetector;
 
 public abstract class HorizontalAbsListView extends ViewGroup {
     private int mFirstAdapterItemIndex;
@@ -23,6 +25,8 @@ public abstract class HorizontalAbsListView extends ViewGroup {
     private ArrayList<ItemInfo> mItemsCache;
 
     private final MoveChildrenRunnable mMoveRunnable = new MoveChildrenRunnable(this);
+
+    private static final float VELOCITY_X_RATIO = 0.5f;
 
     protected HorizontalAbsListView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
@@ -53,7 +57,8 @@ public abstract class HorizontalAbsListView extends ViewGroup {
 
                     @Override
                     public boolean onDown(MotionEvent e) {
-                        return false;  //To change body of implemented methods use File | Settings | File Templates.
+                        stopScrolling();
+                        return true;  //To change body of implemented methods use File | Settings | File Templates.
                     }
 
                     @Override
@@ -68,6 +73,7 @@ public abstract class HorizontalAbsListView extends ViewGroup {
 
                     @Override
                     public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+                        Log.d("HorizontalListView", "distance = " + distanceX);
                         return startScroll(distanceX);
                     }
 
@@ -78,7 +84,7 @@ public abstract class HorizontalAbsListView extends ViewGroup {
 
                     @Override
                     public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-                        return startFling(velocityX);
+                        return startFling(-velocityX * VELOCITY_X_RATIO);
                     }
                 });
     }
@@ -128,38 +134,125 @@ public abstract class HorizontalAbsListView extends ViewGroup {
         itemInfo.recycleItemViews(index, mAdapter, mViewCache);
     }
 
-    private int addItemsToLeft() {
-        return 0;
+    void stopScrolling() {
+        mScroller.forceFinished(true);
+        removeCallbacks(mMoveRunnable);
     }
 
-    private int addItemsToRight() {
-        return 0;
+    private int getFirstItemOffset() {
+        ArrayList<ItemInfo> items = mItems;
+        if (items.size() == 0)
+            return  0;
+        else
+            return items.get(0).getLeft() - getPaddingLeft();
     }
 
-    private int correctChildrenOffset() {
-        return 0;
+    private int getWidthWithoutPaddings() {
+        return getWidth() - getPaddingLeft() - getPaddingRight();
     }
 
-    private int removeItemsFromLeft() {
-        return 0;
+    private int getDisplayItemsFullWidth() {
+        int fullWidth = 0;
+        ArrayList<ItemInfo> items = mItems;
+        int itemsCount = items.size();
+        for(int counterItem = 0; counterItem < itemsCount; counterItem++)
+            fullWidth += items.get(counterItem).getWidth();
+        return fullWidth;
     }
 
-    private int removeItemsFromRight() {
-        return 0;
+    private void shiftItems(int dX) {
+        ArrayList<ItemInfo> items = mItems;
+        int itemsCount = items.size();
+        for(int counterItem = 0; counterItem < itemsCount; counterItem++)
+            items.get(counterItem).offsetViews(dX);
     }
 
-    private boolean moveChildren() {
+    private boolean moveChildrenLeft(int dX) {
+        int paddingLeft = getPaddingLeft();
+        int paddingTop = getPaddingTop();
+        int viewWidthWithoutPadding = getWidthWithoutPaddings();
+        int viewHeightWithoutPadding = getHeight() - paddingTop - getPaddingBottom();
+
+        int firstItemX = getFirstItemOffset();
+
+        ArrayList<ItemInfo> items = mItems;
+        int firstAdapterItemIndex = mFirstAdapterItemIndex;
+        int nextItemIndex = firstAdapterItemIndex + items.size();
+        int countAdapterItems = getItemInfoCount(mAdapter);
+        int currentRight = firstItemX - dX + getDisplayItemsFullWidth();
+
+        while (  currentRight < viewWidthWithoutPadding
+              && nextItemIndex < countAdapterItems) {
+            ItemInfo newItem = getItemInfo(nextItemIndex);
+            items.add(newItem);
+            newItem.addItemViews(this);
+            newItem.measureViews(viewWidthWithoutPadding, viewHeightWithoutPadding);
+            newItem.layoutViews(paddingLeft + currentRight + dX, paddingTop, paddingTop + viewHeightWithoutPadding);
+            currentRight += newItem.getWidth();
+            nextItemIndex++;
+        }
+
+        boolean forceFinishing;
+        if (currentRight < viewWidthWithoutPadding) {
+            forceFinishing = true;
+            dX -= viewWidthWithoutPadding - currentRight;
+            if (dX < 0)
+                dX = 0;
+        } else
+            forceFinishing = false;
+
+        int currentLeft = firstItemX - dX;
+        ItemInfo itemToRemove = items.get(0);
+        while (currentLeft + itemToRemove.getWidth() < 0) {
+            currentLeft += itemToRemove.getWidth();
+            items.remove(0);
+            itemToRemove.removeItemViews(this);
+            recycleItemInfo(firstAdapterItemIndex, itemToRemove);
+            itemToRemove = items.get(0);
+            firstAdapterItemIndex++;
+        }
+        mFirstAdapterItemIndex = firstAdapterItemIndex;
+
+        shiftItems(-dX);
+
+        return forceFinishing;
+    }
+
+    private boolean moveChildrenRight(int dX) {
+        shiftItems(-dX);
+        return false;
+    }
+
+    private void moveChildren() {
         Scroller scroller = mScroller;
-        boolean isScrollingFinished = scroller.computeScrollOffset();
+        int startX = scroller.getCurrX();
+        scroller.computeScrollOffset();
+        int endX = scroller.getCurrX();
+        int deltaX = endX - startX;
 
-        return !isScrollingFinished;
+        Log.d("HorizontalListView", "deltaX = " + deltaX + "(startX = " + startX + " endX = " + endX + ")");
+        boolean forceFinished = false;
+        if (deltaX > 0)
+            forceFinished = moveChildrenLeft(deltaX);
+        else if (deltaX < 0)
+            forceFinished = moveChildrenRight(deltaX);
+
+        if (forceFinished)
+            scroller.forceFinished(true);
+
+        if (!scroller.isFinished())
+            post(mMoveRunnable);
     }
 
     boolean startScroll(float dx) {
+        mScroller.startScroll(0, 0, Math.round(dx), 0, 0);
+        moveChildren();
         return true;
     }
 
     boolean startFling(float velocityX) {
+        mScroller.fling(0, 0, Math.round(velocityX), 0, Integer.MIN_VALUE, Integer.MAX_VALUE, 0, 0);
+        moveChildren();
         return true;
     }
 
@@ -170,15 +263,11 @@ public abstract class HorizontalAbsListView extends ViewGroup {
 
         int paddingLeft = getPaddingLeft();
         int paddingTop = getPaddingTop();
-        int viewWidthWithoutPadding = getWidth() - paddingLeft - getPaddingRight();
+        int viewWidthWithoutPadding = getWidthWithoutPaddings();
         int viewHeightWithoutPadding = getHeight() - paddingTop - getPaddingBottom();
 
         ArrayList<ItemInfo> items = mItems;
-        int firstItemOffset;
-        if (items.size() == 0)
-            firstItemOffset = 0;
-        else
-            firstItemOffset = items.get(0).getLeft() - paddingLeft;
+        int firstItemOffset = getFirstItemOffset();
         int currentRight = firstItemOffset;
 
 
@@ -225,14 +314,18 @@ public abstract class HorizontalAbsListView extends ViewGroup {
                 horizontalOffset = -currentLeft;
             else
                 horizontalOffset = viewWidthWithoutPadding - currentRight;
-            for(int counterItem = 0; counterItem < items.size(); counterItem++)
-                items.get(counterItem).offsetViews(horizontalOffset);
+            shiftItems(horizontalOffset);
         } else
             while (currentIndex - firstAdapterItemIndex < items.size()) {
                 ItemInfo currentItem = items.remove(items.size() - 1);
                 currentItem.removeItemViews(this);
                 recycleItemInfo(firstAdapterItemIndex + items.size() - 1, currentItem);
             }
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent event) {
+        return mGestureDetector.onTouchEvent(event);
     }
 
     protected abstract static class ItemInfo {
@@ -333,15 +426,9 @@ public abstract class HorizontalAbsListView extends ViewGroup {
             mView = view;
         }
 
-        public void start() {
-            mView.post(this);
-        }
-
         @Override
         public void run() {
-            boolean scrollFurther = mView.moveChildren();
-            if (scrollFurther)
-                mView.post(this);
+            mView.moveChildren();
         }
     }
 }

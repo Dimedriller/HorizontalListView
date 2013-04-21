@@ -1,4 +1,4 @@
-package com.hlv.horizontallistview;
+package com.github.dimedriller.horizontallistview;
 
 import android.content.Context;
 import android.util.AttributeSet;

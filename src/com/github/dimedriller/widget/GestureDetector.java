@@ -1,4 +1,4 @@
-package com.hlv.horizontallistview;
+package com.github.dimedriller.widget;
 
 import android.content.Context;
 import android.view.MotionEvent;

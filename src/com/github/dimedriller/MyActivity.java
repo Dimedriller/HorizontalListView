@@ -1,16 +1,14 @@
-package com.hlv;
+package com.github.dimedriller;
 
 import android.app.Activity;
-import android.database.DataSetObserver;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Adapter;
 import android.widget.BaseAdapter;
-import android.widget.SimpleAdapter;
-import com.hlv.R;
-import com.hlv.horizontallistview.HorizontalListView;
+import android.widget.TextView;
+import com.github.R;
+import com.github.dimedriller.horizontallistview.HorizontalListView;
 
 public class MyActivity extends Activity {
     /**
@@ -25,7 +23,7 @@ public class MyActivity extends Activity {
         list.setAdapter(new BaseAdapter() {
             @Override
             public int getCount() {
-                return 10;
+                return 200;
             }
 
             @Override
@@ -44,6 +42,8 @@ public class MyActivity extends Activity {
                     LayoutInflater inflater = LayoutInflater.from(viewGroup.getContext());
                     view = inflater.inflate(R.layout.list_item, viewGroup, false);
                 }
+                TextView textView = (TextView) view.findViewById(R.id.Text);
+                textView.setText(Integer.toString(i));
                 return view;
             }
         });
@@ -51,13 +51,13 @@ public class MyActivity extends Activity {
         findViewById(R.id.LayoutDecrease).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                changeListHorizontalSize(-5);
+                changeListHorizontalSize(-15);
             }
         });
         findViewById(R.id.LayoutIncrease).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                changeListHorizontalSize(5);
+                changeListHorizontalSize(15);
             }
         });
     }

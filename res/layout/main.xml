@@ -15,7 +15,7 @@
             android:layout_height="50dip"
             android:layout_gravity="right|top"
             android:text="Increase" />
-    <com.hlv.horizontallistview.HorizontalListView
+    <com.github.dimedriller.horizontallistview.HorizontalListView
             android:id="@+id/List"
             android:layout_width="300dip"
             android:layout_height="match_parent"
