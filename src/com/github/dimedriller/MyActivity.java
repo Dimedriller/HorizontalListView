@@ -5,8 +5,10 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.TextView;
+import android.widget.Toast;
 import com.github.R;
 import com.github.dimedriller.horizontallistview.HorizontalListView;
 
@@ -19,11 +21,11 @@ public class MyActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
 
-        HorizontalListView list = (HorizontalListView) findViewById(R.id.List);
+        HorizontalListView list = (HorizontalListView) findViewById(R.id.HorizontalList);
         list.setAdapter(new BaseAdapter() {
             @Override
             public int getCount() {
-                return 200;
+                return 100;
             }
 
             @Override
@@ -44,26 +46,36 @@ public class MyActivity extends Activity {
                 }
                 TextView textView = (TextView) view.findViewById(R.id.Text);
                 textView.setText(Integer.toString(i));
+
+                ViewGroup.LayoutParams params = view.getLayoutParams();
+                //params.width = 80 + (i % 5) * 20;
                 return view;
+            }
+        });
+        list.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                Toast toast = Toast.makeText(MyActivity.this, "Position# " + position, 2000);
+                toast.show();
             }
         });
 
         findViewById(R.id.LayoutDecrease).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                changeListHorizontalSize(-15);
+                changeListHorizontalSize(-50);
             }
         });
         findViewById(R.id.LayoutIncrease).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                changeListHorizontalSize(15);
+                changeListHorizontalSize(50);
             }
         });
     }
 
     private void changeListHorizontalSize(int delta) {
-        View list = findViewById(R.id.List);
+        View list = findViewById(R.id.HorizontalList);
         ViewGroup.LayoutParams listParams = list.getLayoutParams();
         listParams.width += delta;
         list.setLayoutParams(listParams);

@@ -16,10 +16,11 @@
             android:layout_gravity="right|top"
             android:text="Increase" />
     <com.github.dimedriller.horizontallistview.HorizontalListView
-            android:id="@+id/List"
-            android:layout_width="300dip"
-            android:layout_height="match_parent"
-            android:layout_gravity="left|bottom"
-            android:layout_marginTop="50dip" />
+            android:id="@+id/HorizontalList"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="left|top"
+            android:layout_marginTop="50dip"                                     android:background="@drawable/list_stub"
+            android:padding="8dip" />
 </FrameLayout>
 

@@ -24,14 +24,11 @@ import android.view.ViewConfiguration;
 import android.view.animation.AnimationUtils;
 import android.view.animation.Interpolator;
 
-
-/**
- * This class encapsulates scrolling.  The duration of the scroll
- * can be passed in the constructor and specifies the maximum time that
- * the scrolling animation should take.  Past this time, the scrolling is 
- * automatically moved to its final stage and computeScrollOffset()
- * will always return false to indicate that scrolling is over.
- */
+/***********************************************************************************************************************
+ * This class encapsulates scrolling.  The duration of the scroll can be passed in the constructor and specifies the
+ * maximum time that the scrolling animation should take.  Past this time, the scrolling is automatically moved to its
+ * final stage and computeScrollOffset() will always return false to indicate that scrolling is over.
+ **********************************************************************************************************************/
 public class Scroller  {
     private int mMode;
 

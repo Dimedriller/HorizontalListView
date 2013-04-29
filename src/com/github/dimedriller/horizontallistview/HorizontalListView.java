@@ -6,6 +6,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Adapter;
 
+/***********************************************************************************************************************
+ * This class is designed to display horizontal list of elements
+ **********************************************************************************************************************/
 public class HorizontalListView extends HorizontalAbsListView {
     public HorizontalListView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -63,14 +66,10 @@ public class HorizontalListView extends HorizontalAbsListView {
         }
 
         @Override
-        public void measureViews(int parentWidth, int parentHeight) {
+        public void measureViewsBySpecs(int parentSpecWidth, int paddingHorizontal, int parentSpecHeight, int paddingVertical) {
             LayoutParams params = mView.getLayoutParams();
-
-            int parentSpecWidth = MeasureSpec.makeMeasureSpec(parentWidth, MeasureSpec.EXACTLY);
-            int childSpecWidth = getChildMeasureSpec(parentSpecWidth, 0, params.width);
-
-            int parentSpecHeight = MeasureSpec.makeMeasureSpec(parentHeight, MeasureSpec.EXACTLY);
-            int childSpecHeight = getChildMeasureSpec(parentSpecHeight, 0, params.height);
+            int childSpecWidth = getChildMeasureSpec(parentSpecWidth, paddingHorizontal, params.width);
+            int childSpecHeight = getChildMeasureSpec(parentSpecHeight, paddingVertical, params.height);
 
             mView.measure(childSpecWidth, childSpecHeight);
             setWidth(mView.getMeasuredWidth());
@@ -78,13 +77,41 @@ public class HorizontalListView extends HorizontalAbsListView {
         }
 
         @Override
-        protected void onLayoutViews(int left, int top, int bottom) {
-            mView.layout(left, top, left + getWidth(), bottom);
+        public void measureViews(int parentWidth, int parentHeight) {
+            int parentSpecWidth = MeasureSpec.makeMeasureSpec(parentWidth, MeasureSpec.EXACTLY);
+            int parentSpecHeight = MeasureSpec.makeMeasureSpec(parentHeight, MeasureSpec.EXACTLY);
+
+            measureViewsBySpecs(parentSpecWidth, 0, parentSpecHeight, 0);
+        }
+
+        @Override
+        protected void onLayoutViews(int left, int top) {
+            mView.layout(left, top, left + getWidth(), top + getHeight());
         }
 
         @Override
         protected void onOffsetViews(int dX) {
             mView.offsetLeftAndRight(dX);
+        }
+
+        @Override
+        public void showPressed(int touchX, int touchY) {
+            mView.setPressed(true);
+        }
+
+        @Override
+        public void hidePressed() {
+            mView.setPressed(false);
+        }
+
+        @Override
+        public int findAdapterItemIndex(int index, int x, int y) {
+            return index;
+        }
+
+        @Override
+        public View findAdapterViewItem(int x, int y) {
+            return mView;
         }
     }
 }
