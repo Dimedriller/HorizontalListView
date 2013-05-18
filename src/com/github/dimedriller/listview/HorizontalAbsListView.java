@@ -29,6 +29,9 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
     protected int mFirstGlobalItemIndex;
     protected ArrayList<ItemInfo> mItems;
 
+    /* This field is used only when state is restored */
+    private int mFirstItemOffset;
+
     private ItemInfoManager mItemsManager;
 
     private final Scroller mScroller;
@@ -154,14 +157,14 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         mItems = new ArrayList<ItemInfo>(0);
     }
 
-    /*
+    /**
      *******************************************************************************************************************
      * Creates instance of {@code ItemInfoManager} for specific scion of this class
      *******************************************************************************************************************
      */
     protected abstract ItemInfoManager createItemInfoManager(Adapter adapter);
 
-    /*
+    /**
      *******************************************************************************************************************
      * @return instance of {@code ItemInfoManager} associated with this class
      *******************************************************************************************************************
@@ -202,6 +205,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         Parcelable parcelable = super.onSaveInstanceState();
         ListState listState = new ListState(parcelable);
         listState.setFirstItemIndex(mFirstGlobalItemIndex);
+        listState.setFirstItemOffset(getFirstItemOffset());
         return listState;
     }
 
@@ -210,12 +214,13 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         ListState listState = (ListState) state;
         super.onRestoreInstanceState(listState.getSuperState());
         mFirstGlobalItemIndex = listState.getFirstItemIndex();
+        mFirstItemOffset = listState.getFirstItemOffset();
     }
 
     @Override
     public abstract LayoutParams generateDefaultLayoutParams();
 
-    /*
+    /**
      *******************************************************************************************************************
      * It was overriden to provide public access
      *******************************************************************************************************************
@@ -272,7 +277,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         return items.get(itemsCount - 1).getRight() - items.get(0).getLeft();
     }
 
-    /*
+    /**
      *******************************************************************************************************************
      * Moves {@code itemsCount} items starting from {@code itemFirstIndex} on {@code dX} points left or right
      * depending on {@code dX} sign
@@ -291,7 +296,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
             items.get(counterItem).offsetViews(dX);
     }
 
-    /*
+    /**
      *******************************************************************************************************************
      * Moves all items on {@code dX} points left or right depending on {@code dX} sign
      * @param dX - horizontal offset amount
@@ -582,7 +587,8 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
 
         int viewWidthWithoutPadding = getWidthWithoutPaddings();
         ArrayList<ItemInfo> items = mItems;
-        int firstItemOffset = getFirstItemOffset();
+        int firstItemOffset = getFirstItemOffset() + mFirstItemOffset;
+        mFirstItemOffset = 0;
         int currentRight = firstItemOffset;
 
 
@@ -932,6 +938,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
 
     private static class ListState extends BaseSavedState {
         private int mFirstItemIndex;
+        private int mFirstItemOffset;
 
         public ListState(Parcelable parcelable) {
             super(parcelable);
@@ -943,6 +950,14 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
 
         public int getFirstItemIndex() {
             return mFirstItemIndex;
+        }
+
+        private void setFirstItemOffset(int firstItemOffset) {
+            mFirstItemOffset = firstItemOffset;
+        }
+
+        private int getFirstItemOffset() {
+            return mFirstItemOffset;
         }
     }
 }

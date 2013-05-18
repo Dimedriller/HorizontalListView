@@ -17,9 +17,9 @@ import com.github.dimedriller.listview.diff.InsertDiffAtom;
 import java.util.ArrayList;
 
 /**
- * ********************************************************************************************************************
+ ***********************************************************************************************************************
  * This class is designed to display horizontal list view of elements
- * ********************************************************************************************************************
+ ***********************************************************************************************************************
  */
 public class HorizontalListView extends HorizontalAbsListView {
     private final DataSetObserver mDataSetObserver = new DataSetObserver() {
