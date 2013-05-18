@@ -1,4 +1,4 @@
-package com.github.dimedriller.horizontallistview;
+package com.github.dimedriller.listview;
 
 import java.util.ArrayList;
 
@@ -9,28 +9,27 @@ import android.os.Parcelable;
 import android.support.v4.view.ViewCompat;
 import android.support.v4.widget.EdgeEffectCompat;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.util.SparseArray;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Adapter;
-import android.widget.AdapterView;
 
-import com.github.R;
+import android.widget.AdapterView;
+import com.github.dimedriller.R;
 import com.github.dimedriller.widget.Scroller;
 import com.github.dimedriller.widget.GestureDetector;
 import com.github.dimedriller.widget.TouchInterceptionDetector;
 
-/***********************************************************************************************************************
- * This class is base class to provide horizontal list scrolling logic
- **********************************************************************************************************************/
+/**
+ ***********************************************************************************************************************
+ * This class is base class to provide horizontal list view scrolling logic
+ ***********************************************************************************************************************
+ */
 public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
-    private int mFirstGlobalItemIndex;
-    private ArrayList<ItemInfo> mItems;
+    protected int mFirstGlobalItemIndex;
+    protected ArrayList<ItemInfo> mItems;
 
-    private Adapter mAdapter;
-    private ViewCache mViewCache;
-    private ArrayList<ItemInfo> mItemsCache;
+    private ItemInfoManager mItemsManager;
 
     private final Scroller mScroller;
     private final GestureDetector mGestureDetector;
@@ -38,7 +37,8 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
     private final TouchInterceptionDetector mTouchInterceptionDetector = new TouchInterceptionDetector() {
         @Override
         protected boolean onDoInterception(float previousX, float previousY, float currentX, float currentY) {
-            return Math.abs(currentX - previousX) > Math.abs(currentY - previousY);
+            float deltaX = Math.abs(currentX - previousX);
+            return deltaX > Math.abs(currentY - previousY) && deltaX > 50; // TODO Find correct constant
         }
     };
 
@@ -118,7 +118,6 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
 
                     @Override
                     public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-                        Log.d("HorizontalListView", "distance = " + distanceX);
                         awakenScrollBars();
                         return startScroll(distanceX);
                     }
@@ -150,19 +149,31 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         } catch (Exception exc) {
             // On some devices stylable attributes for scrollbars can be absent
         }
+
+        mItemsManager = createItemInfoManager(null);
+        mItems = new ArrayList<ItemInfo>(0);
+    }
+
+    /*
+     *******************************************************************************************************************
+     * Creates instance of {@code ItemInfoManager} for specific scion of this class
+     *******************************************************************************************************************
+     */
+    protected abstract ItemInfoManager createItemInfoManager(Adapter adapter);
+
+    /*
+     *******************************************************************************************************************
+     * @return instance of {@code ItemInfoManager} associated with this class
+     *******************************************************************************************************************
+     */
+    protected ItemInfoManager getItemsManager() {
+        return mItemsManager;
     }
 
     @Override
     public void setAdapter(Adapter adapter) {
-        mAdapter = adapter;
-        if (adapter == null) {
-            mViewCache = new ViewCache(0);
-            mItemsCache = new ArrayList<ItemInfo>(0);
-        }
-        else {
-            mViewCache = new ViewCache(adapter.getViewTypeCount());
-            mItemsCache = new ArrayList<ItemInfo>();
-        }
+        mItemsManager = createItemInfoManager(adapter);
+
         removeAllViewsInLayout();
 
         mFirstGlobalItemIndex = 0;
@@ -172,7 +183,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
 
     @Override
     public Adapter getAdapter() {
-        return mAdapter;
+        return mItemsManager.getAdapter();
     }
 
     @Override
@@ -204,38 +215,20 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
     @Override
     public abstract LayoutParams generateDefaultLayoutParams();
 
+    /*
+     *******************************************************************************************************************
+     * It was overriden to provide public access
+     *******************************************************************************************************************
+     */
     @Override
     public boolean addViewInLayout(View child, int index, LayoutParams params, boolean preventRequestLayout) {
         return super.addViewInLayout(child, index, params, preventRequestLayout);
     }
 
-    protected abstract int getItemInfoCount(Adapter adapter);
-
-    protected abstract ItemInfo createItemInfo();
-
-    private ItemInfo getItemInfo(int globalIndex) {
-        ArrayList<ItemInfo> cache = mItemsCache;
-        ItemInfo itemInfo;
-        if (cache.size() == 0)
-            itemInfo = createItemInfo();
-        else
-            itemInfo = cache.remove(0) ;
-
-        itemInfo.createItemViews(this, globalIndex, mAdapter, mViewCache);
-        itemInfo.addItemViews(this);
-        return itemInfo;
-    }
-
-    private void recycleItemInfo(int globalIndex, ItemInfo itemInfo) {
-        itemInfo.removeItemViews(this);
-        itemInfo.recycleItemViews(globalIndex, mAdapter, mViewCache);
-        mItemsCache.add(itemInfo);
-    }
-
     private int findItemInfoIndexByXY(int x, int y) {
         ArrayList<ItemInfo> items = mItems;
         int countItems = items.size();
-        for(int counter = 0; counter < countItems; counter++)
+        for (int counter = 0; counter < countItems; counter++)
             if (items.get(counter).containsXY(x, y))
                 return counter;
         return -1;
@@ -249,7 +242,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
             return mItems.get(itemIndex);
     }
 
-    void stopScrolling() {
+    public void stopScrolling() {
         mScroller.forceFinished(true);
         removeCallbacks(mMoveRunnable);
     }
@@ -257,33 +250,55 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
     private int getFirstItemOffset() {
         ArrayList<ItemInfo> items = mItems;
         if (items.size() == 0)
-            return  0;
+            return 0;
         else
             return items.get(0).getLeft() - getPaddingLeft();
     }
 
-    private int getWidthWithoutPaddings() {
+    protected int getWidthWithoutPaddings() {
         return getWidth() - getPaddingLeft() - getPaddingRight();
     }
 
-    private int getHeightWithoutPaddings() {
+    protected int getHeightWithoutPaddings() {
         return getHeight() - getPaddingTop() - getPaddingBottom();
     }
 
-    private int getDisplayItemsFullWidth() {
-        int fullWidth = 0;
+    protected int getDisplayedItemsFullWidth() {
         ArrayList<ItemInfo> items = mItems;
         int itemsCount = items.size();
-        for(int counterItem = 0; counterItem < itemsCount; counterItem++)
-            fullWidth += items.get(counterItem).getWidth();
-        return fullWidth;
+        if (itemsCount == 0)
+            return 0;
+
+        return items.get(itemsCount - 1).getRight() - items.get(0).getLeft();
     }
 
-    private void shiftItems(int dX) {
+    /*
+     *******************************************************************************************************************
+     * Moves {@code itemsCount} items starting from {@code itemFirstIndex} on {@code dX} points left or right
+     * depending on {@code dX} sign
+     * @param itemFirstIndex - index of first item being moved
+     * @param itemsCount - number of items being moved
+     * @param dX - horizontal offset amount
+     *******************************************************************************************************************
+     */
+    protected void shiftItems(int itemFirstIndex, int itemsCount, int dX) {
         ArrayList<ItemInfo> items = mItems;
-        int itemsCount = items.size();
-        for(int counterItem = 0; counterItem < itemsCount; counterItem++)
+        int allItemsCount = items.size();
+
+        if (itemFirstIndex + itemsCount > allItemsCount)
+            itemsCount = allItemsCount - itemFirstIndex;
+        for (int counterItem = itemFirstIndex; counterItem < itemFirstIndex + itemsCount; counterItem++)
             items.get(counterItem).offsetViews(dX);
+    }
+
+    /*
+     *******************************************************************************************************************
+     * Moves all items on {@code dX} points left or right depending on {@code dX} sign
+     * @param dX - horizontal offset amount
+     *******************************************************************************************************************
+     */
+    protected void shiftItems(int dX) {
+        shiftItems(0, mItems.size(), dX);
     }
 
     private int measureAndLayoutItemLeft(ItemInfo item, int itemRightX) {
@@ -309,61 +324,99 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         return item.getWidth();
     }
 
-    private boolean moveChildrenLeft(int dX) {
+    /**
+     *******************************************************************************************************************
+     * Adds new views to right side of last view displayed
+     * @param dX - items offset
+     * @return corrected delta X
+     *******************************************************************************************************************
+     */
+    protected int addItemsRight(int dX) {
         int viewWidthWithoutPadding = getWidthWithoutPaddings();
         int firstItemX = getFirstItemOffset();
 
+        ItemInfoManager itemsManager = mItemsManager;
         ArrayList<ItemInfo> items = mItems;
-        int firstGlobalItemIndex = mFirstGlobalItemIndex;
-        int nextItemIndex = firstGlobalItemIndex + items.size();
-        int countGlobalItems = getItemInfoCount(mAdapter);
-        int currentRight = firstItemX - dX + getDisplayItemsFullWidth();
+        int nextItemIndex = mFirstGlobalItemIndex + items.size();
+        int countGlobalItems = itemsManager.getItemInfoCount();
+        int currentRight = firstItemX - dX + getDisplayedItemsFullWidth();
 
         while (  currentRight < viewWidthWithoutPadding
               && nextItemIndex < countGlobalItems) {
-            ItemInfo newItem = getItemInfo(nextItemIndex);
+            ItemInfo newItem = itemsManager.createItemInfo(this, nextItemIndex);
             items.add(newItem);
             currentRight += measureAndLayoutItemRight(newItem, currentRight + dX);
             nextItemIndex++;
         }
 
-        boolean forceFinishing;
-        if (currentRight < viewWidthWithoutPadding) {
-            forceFinishing = true;
-            int extraDelta = viewWidthWithoutPadding - currentRight;
-            dX -= extraDelta;
-            mRightFadingEdge.onPull((float) extraDelta / viewWidthWithoutPadding);
+        if (currentRight <= viewWidthWithoutPadding) {
+            dX -= viewWidthWithoutPadding - currentRight;
             if (dX < 0)
-                dX = 0;
-        } else
-            forceFinishing = false;
+                return 0;
+            else
+                return dX;
+        }
+        else
+            return dX;
+    }
 
-        int currentLeft = firstItemX - dX;
+    /**
+     *******************************************************************************************************************
+     * Removes invisible views from left side of first view displayed
+     * @param dX - items offset
+     *******************************************************************************************************************
+     */
+    protected void removeItemsLeft(int dX) {
+        ItemInfoManager itemsManager = mItemsManager;
+        ArrayList<ItemInfo> items = mItems;
+
         ItemInfo itemToRemove = items.get(0);
+        int firstGlobalItemIndex = mFirstGlobalItemIndex;
+        int currentLeft = getFirstItemOffset() - dX;
+
         while (currentLeft + itemToRemove.getWidth() < 0) {
             currentLeft += itemToRemove.getWidth();
             items.remove(0);
-            recycleItemInfo(firstGlobalItemIndex, itemToRemove);
+            itemsManager.recycleItemInfo(this, firstGlobalItemIndex, itemToRemove);
             itemToRemove = items.get(0);
             firstGlobalItemIndex++;
         }
         mFirstGlobalItemIndex = firstGlobalItemIndex;
-
-        shiftItems(-dX);
-        return forceFinishing;
     }
 
-    private boolean moveChildrenRight(int dX) {
+    private boolean moveItemsLeft(int dX) {
+        int newDX = addItemsRight(dX);
+
+        if (newDX < dX) {
+            int viewWidthWithoutPadding = getWidthWithoutPaddings();
+            mRightFadingEdge.onPull((float) (dX - newDX) / viewWidthWithoutPadding);
+        }
+
+        removeItemsLeft(newDX);
+
+        shiftItems(-newDX);
+        return newDX < dX;
+    }
+
+    /**
+     *******************************************************************************************************************
+     * Adds new views to left side of first view displayed
+     * @param dX - items offset
+     * @return corrected delta X
+     *******************************************************************************************************************
+     */
+    protected int addItemsLeft(int dX) {
         int firstItemX = getFirstItemOffset();
 
+        ItemInfoManager itemsManager = mItemsManager;
         ArrayList<ItemInfo> items = mItems;
         int firstGlobalItemIndex = mFirstGlobalItemIndex;
         int nextItemIndex = firstGlobalItemIndex - 1;
         int currentLeft = firstItemX - dX;
 
-        while (  currentLeft >= 0
-              && nextItemIndex >= 0) {
-            ItemInfo newItem = getItemInfo(nextItemIndex);
+        while (currentLeft >= 0
+                && nextItemIndex >= 0) {
+            ItemInfo newItem = itemsManager.createItemInfo(this, nextItemIndex);
             items.add(0, newItem);
             currentLeft -= measureAndLayoutItemLeft(newItem, currentLeft + dX);
             nextItemIndex--;
@@ -371,33 +424,52 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         firstGlobalItemIndex = nextItemIndex + 1;
         mFirstGlobalItemIndex = firstGlobalItemIndex;
 
-        boolean forceFinishing;
-        int viewWidthWithoutPadding = getWidthWithoutPaddings();
-        if (currentLeft > 0) {
-            forceFinishing = true;
-            dX += currentLeft;
-            mLeftFadingEdge.onPull((float) currentLeft / viewWidthWithoutPadding);
-            currentLeft = 0;
-        } else
-            forceFinishing = false;
+        if (currentLeft > 0)
+            return dX + currentLeft;
+        else
+            return dX;
+    }
 
-        int currentRight = currentLeft + getDisplayItemsFullWidth();
+    /**
+     *******************************************************************************************************************
+     * Removes invisible items from right side of the last view displayed
+     * @param dX - items offset
+     *******************************************************************************************************************
+     */
+    protected void removeItemsRight(int dX) {
+        ItemInfoManager itemsManager = mItemsManager;
+        ArrayList<ItemInfo> items = mItems;
+
         int indexToRemove = items.size() - 1;
         ItemInfo itemToRemove = items.get(indexToRemove);
+        int currentRight = itemToRemove.getRight() - getPaddingLeft() - dX;
+        int viewWidthWithoutPadding = getWidthWithoutPaddings();
+        int firstGlobalItemIndex = mFirstGlobalItemIndex;
 
         while (currentRight - itemToRemove.getWidth() > viewWidthWithoutPadding) {
             currentRight -= itemToRemove.getWidth();
             items.remove(indexToRemove);
-            recycleItemInfo(firstGlobalItemIndex + indexToRemove, itemToRemove);
+            itemsManager.recycleItemInfo(this, firstGlobalItemIndex + indexToRemove, itemToRemove);
             indexToRemove--;
             itemToRemove = items.get(indexToRemove);
         }
-
-        shiftItems(-dX);
-        return forceFinishing;
     }
 
-    private void moveChildren() {
+    private boolean moveItemsRight(int dX) {
+        int newDX = addItemsLeft(dX);
+
+        if (newDX > dX) {
+            int viewWidthWithoutPadding = getWidthWithoutPaddings();
+            mLeftFadingEdge.onPull((float) (newDX - dX) / viewWidthWithoutPadding);
+        }
+
+        removeItemsRight(newDX);
+
+        shiftItems(-newDX);
+        return newDX > dX;
+    }
+
+    private void moveItems() {
         Scroller scroller = mScroller;
         int startX = scroller.getCurrX();
         scroller.computeScrollOffset();
@@ -405,17 +477,15 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         int deltaX = endX - startX;
         int widthWithoutPaddings = getWidthWithoutPaddings();
 
-        Log.d("HorizontalListView", "deltaX = " + deltaX + "(startX = " + startX + " endX = " + endX + ")");
         boolean forceFinished = false;
         if (deltaX > 0) {
             if (deltaX > widthWithoutPaddings)
                 deltaX = widthWithoutPaddings;
-            forceFinished = moveChildrenLeft(deltaX);
-        }
-        else if (deltaX < 0) {
+            forceFinished = moveItemsLeft(deltaX);
+        } else if (deltaX < 0) {
             if (deltaX < -widthWithoutPaddings)
                 deltaX = -widthWithoutPaddings;
-            forceFinished = moveChildrenRight(deltaX);
+            forceFinished = moveItemsRight(deltaX);
         }
         invalidate();
 
@@ -428,27 +498,27 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
     private void hidePressedState() {
         ArrayList<ItemInfo> items = mItems;
         int countItems = mItems.size();
-        for(int counter = 0; counter < countItems; counter++)
+        for (int counter = 0; counter < countItems; counter++)
             items.get(counter).hidePressed();
     }
 
-    boolean startScroll(float dx) {
-        if (mAdapter == null)
+    private boolean startScroll(float dx) {
+        if (mItemsManager.getItemInfoCount() == 0)
             return true;
 
         hidePressedState();
         mScroller.startScroll(0, 0, Math.round(dx), 0, 0);
-        moveChildren();
+        moveItems();
         return true;
     }
 
-    boolean startFling(float velocityX) {
-        if (mAdapter == null)
+    private boolean startFling(float velocityX) {
+        if (mItemsManager.getItemInfoCount() == 0)
             return true;
 
         hidePressedState();
         mScroller.fling(0, 0, Math.round(velocityX), 0, Integer.MIN_VALUE, Integer.MAX_VALUE, 0, 0);
-        moveChildren();
+        moveItems();
         return true;
     }
 
@@ -456,7 +526,9 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
 
-        if (mAdapter == null)
+        ItemInfoManager itemsManager = mItemsManager;
+        int itemsCount = itemsManager.getItemInfoCount();
+        if (itemsCount == 0)
             return;
 
         int widthMode = MeasureSpec.getMode(widthMeasureSpec);
@@ -469,23 +541,23 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
 
         int childWidth = 0;
         int childHeight = 0;
-        int itemsCount = getItemInfoCount(mAdapter);
-        if ( itemsCount > 0
-           &&(  widthMode != MeasureSpec.EXACTLY
-             || heightMode != MeasureSpec.EXACTLY)) {
+
+        if (itemsCount > 0
+                && (widthMode != MeasureSpec.EXACTLY
+                || heightMode != MeasureSpec.EXACTLY)) {
             ArrayList<ItemInfo> existingItems = mItems;
             ItemInfo child;
             if (existingItems.size() > 0)
                 child = existingItems.get(0);
             else
-                child = getItemInfo(0);
+                child = itemsManager.createItemInfo(this, 0);
 
             childWidth = child.getWidth();
             child.measureViewsBySpecs(widthMeasureSpec, horizontalPaddings, heightMeasureSpec, verticalPaddings);
             childHeight = child.getHeight();
 
             if (existingItems.size() == 0)
-                recycleItemInfo(0, child);
+                itemsManager.recycleItemInfo(this, 0, child);
         }
 
         if (widthMode == MeasureSpec.AT_MOST) {
@@ -503,7 +575,9 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
 
     @Override
     protected void onLayout(boolean isChanged, int l, int t, int r, int b) {
-        if (mAdapter == null)
+        ItemInfoManager itemsManager = mItemsManager;
+        int globalItemsCount = itemsManager.getItemInfoCount();
+        if (globalItemsCount == 0)
             return;
 
         int viewWidthWithoutPadding = getWidthWithoutPaddings();
@@ -512,18 +586,17 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         int currentRight = firstItemOffset;
 
 
-        int globalItemsCount = getItemInfoCount(mAdapter);
         int firstGlobalItemIndex = mFirstGlobalItemIndex;
         int currentIndex = firstGlobalItemIndex;
 
-        while (  currentRight < viewWidthWithoutPadding
-              && currentIndex < globalItemsCount ) {
+        while (currentRight < viewWidthWithoutPadding
+                && currentIndex < globalItemsCount) {
             int listItemIndex = currentIndex - firstGlobalItemIndex;
             ItemInfo currentItem;
             if (listItemIndex < items.size())
                 currentItem = items.get(listItemIndex);
             else {
-                currentItem = getItemInfo(currentIndex);
+                currentItem = itemsManager.createItemInfo(this, currentIndex);
                 items.add(currentItem);
             }
             currentRight += measureAndLayoutItemRight(currentItem, currentRight);
@@ -533,10 +606,10 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         if (currentRight < viewWidthWithoutPadding) {
             int currentLeft = firstItemOffset;
             int itemsFullWidth = currentRight - currentLeft;
-            while (  itemsFullWidth < viewWidthWithoutPadding
-                  && firstGlobalItemIndex > 0) {
+            while (itemsFullWidth < viewWidthWithoutPadding
+                    && firstGlobalItemIndex > 0) {
                 firstGlobalItemIndex--;
-                ItemInfo item = getItemInfo(firstGlobalItemIndex);
+                ItemInfo item = itemsManager.createItemInfo(this, firstGlobalItemIndex);
                 items.add(0, item);
                 currentLeft -= measureAndLayoutItemLeft(item, currentLeft);
                 itemsFullWidth += item.getWidth();
@@ -552,7 +625,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         } else
             while (currentIndex - firstGlobalItemIndex < items.size()) {
                 ItemInfo currentItem = items.remove(items.size() - 1);
-                recycleItemInfo(firstGlobalItemIndex + items.size() - 1, currentItem);
+                itemsManager.recycleItemInfo(this, firstGlobalItemIndex + items.size() - 1, currentItem);
             }
     }
 
@@ -571,12 +644,12 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
     private void drawEdges(Canvas canvas) {
         int overscrollMode = ViewCompat.getOverScrollMode(this);
 
-        if (  overscrollMode == ViewCompat.OVER_SCROLL_ALWAYS
-           || overscrollMode == ViewCompat.OVER_SCROLL_IF_CONTENT_SCROLLS) {
+        if (overscrollMode == ViewCompat.OVER_SCROLL_ALWAYS
+                || overscrollMode == ViewCompat.OVER_SCROLL_IF_CONTENT_SCROLLS) {
             boolean doInvalidate = false;
             EdgeEffectCompat leftEdge = mLeftFadingEdge;
             if (!leftEdge.isFinished())
-                doInvalidate |= drawEdge(canvas, leftEdge, 270f, -getHeight() + getPaddingTop(), getPaddingLeft());
+                doInvalidate = drawEdge(canvas, leftEdge, 270f, -getHeight() + getPaddingTop(), getPaddingLeft());
             EdgeEffectCompat rightEdge = mRightFadingEdge;
             if (!rightEdge.isFinished())
                 doInvalidate |= drawEdge(canvas, rightEdge, 90f, getPaddingTop(), getPaddingLeft() - getWidth());
@@ -584,7 +657,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
             if (doInvalidate)
                 ViewCompat.postInvalidateOnAnimation(this);
         }
-            }
+    }
 
     @Override
     protected void onDraw(Canvas canvas) {
@@ -593,12 +666,10 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
     }
 
     @Override
-    public boolean onInterceptTouchEvent(MotionEvent ev) {
-        return mTouchInterceptionDetector.doInterception(ev)  ;
-    }
-
-    @Override
     public boolean onTouchEvent(MotionEvent event) {
+        boolean interceptParentEvents = mTouchInterceptionDetector.doInterception(event);
+        if (interceptParentEvents)
+            getParent().requestDisallowInterceptTouchEvent(interceptParentEvents);
         return mGestureDetector.onTouchEvent(event);
     }
 
@@ -610,16 +681,16 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         ArrayList<ItemInfo> items = mItems;
         if (items.size() == 0)
             return 0.0f;
-       return (float) (-getFirstItemOffset() - getPaddingLeft()) / items.get(0).getWidth();
+        return (float) - getFirstItemOffset() / items.get(0).getWidth();
     }
 
     @Override
     protected float getRightFadingEdgeStrength() {
         ArrayList<ItemInfo> items = mItems;
-        int itemsGlobalCount = getItemInfoCount(mAdapter);
+        int itemsGlobalCount = mItemsManager.getItemInfoCount();
         int itemsVisibleCount = items.size();
 
-        if (mFirstGlobalItemIndex + itemsVisibleCount != itemsGlobalCount)
+        if (mFirstGlobalItemIndex + itemsVisibleCount < itemsGlobalCount)
             return 1.0f;
 
         if (itemsVisibleCount == 0)
@@ -639,7 +710,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         if (items.size() == 0)
             return 0;
 
-        return items.get(0).getWidth() * mAdapter.getCount();
+        return items.get(0).getWidth() * mItemsManager.getItemInfoCount();
     }
 
     @Override
@@ -648,10 +719,10 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         if (items.size() == 0)
             return 0;
 
-        return items.get(0).getWidth() * mFirstGlobalItemIndex;
+        return items.get(0).getWidth() * mFirstGlobalItemIndex - getFirstItemOffset();
     }
 
-    void handleItemTap(int x, int y) {
+    private void handleItemTap(int x, int y) {
         int tappedItemIndex = findItemInfoIndexByXY(x, y);
         if (tappedItemIndex == -1)
             return;
@@ -671,6 +742,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
 
         private int mLeft;
         private int mTop;
+        private int mRight;
 
         protected void setWidth(int width) {
             mWidth = width;
@@ -693,45 +765,64 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         }
 
         public int getRight() {
-            return mLeft + mWidth;
+            return mRight;
+        }
+
+        public int getTop() {
+            return mTop;
         }
 
         public abstract void createItemViews(HorizontalAbsListView parent, int index, Adapter adapter, ViewCache viewCache);
+
         public abstract void addItemViews(HorizontalAbsListView parent);
+
         public abstract void removeItemViews(HorizontalAbsListView parent);
+
         public abstract void recycleItemViews(int index, Adapter adapter, ViewCache viewCache);
 
-        public abstract void measureViewsBySpecs(int parentSpecWidth, int paddingHorizontal, int parentSpecHeight, int paddingVertical);
+        public abstract void measureViewsBySpecs(int parentSpecWidth,
+                int paddingHorizontal,
+                int parentSpecHeight,
+                int paddingVertical);
+
         public abstract void measureViews(int parentWidth, int parentHeight);
 
-        protected abstract void onLayoutViews(int left, int top);
+        protected abstract void onLayoutViews(int left, int top, int width);
 
-        public void layoutViews(int left, int top) {
+        public void layoutViews(int left, int top, int width) {
             mLeft = left;
             mTop = top;
-            onLayoutViews(left, top);
+            mRight = left + width;
+            onLayoutViews(left, top, width);
+        }
+
+        public void layoutViews(int left, int top) {
+            layoutViews(left, top, mWidth);
         }
 
         protected abstract void onOffsetViews(int dX);
 
         public void offsetViews(int dX) {
             mLeft += dX;
+            mRight += dX;
             onOffsetViews(dX);
         }
 
         public boolean containsXY(int x, int y) {
             int left = mLeft;
             int top = mTop;
-            return  x >= left
+            return x >= left
                     && x <= left + mWidth
                     && y >= top
                     && y <= top + mHeight;
         }
 
         public abstract void showPressed(int touchX, int touchY);
+
         public abstract void hidePressed();
 
         public abstract int findAdapterItemIndex(int index, int x, int y);
+
         public abstract View findAdapterViewItem(int x, int y);
     }
 
@@ -774,6 +865,58 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         }
     }
 
+    protected static abstract class ItemInfoManager {
+        private final Adapter mAdapter;
+        private final ViewCache mViewCache;
+        private final ArrayList<ItemInfo> mItemsCache;
+
+        protected ItemInfoManager(Adapter adapter) {
+            int viewTypesCount;
+            if (adapter == null)
+                viewTypesCount = 0;
+            else
+                viewTypesCount = adapter.getViewTypeCount();
+            mAdapter = adapter;
+            mViewCache = new ViewCache(viewTypesCount);
+            mItemsCache = new ArrayList<ItemInfo>();
+        }
+
+        public Adapter getAdapter() {
+            return mAdapter;
+        }
+
+        protected abstract int onGetItemInfoCount(Adapter adapter);
+
+        public int getItemInfoCount() {
+            Adapter adapter = mAdapter;
+            if (adapter == null)
+                return 0;
+            else
+                return onGetItemInfoCount(adapter);
+        }
+
+        protected abstract ItemInfo onCreateItemInfo();
+
+        public ItemInfo createItemInfo(HorizontalAbsListView view, int globalIndex) {
+            ArrayList<ItemInfo> cache = mItemsCache;
+            ItemInfo itemInfo;
+            if (cache.size() == 0)
+                itemInfo = onCreateItemInfo();
+            else
+                itemInfo = cache.remove(0);
+
+            itemInfo.createItemViews(view, globalIndex, mAdapter, mViewCache);
+            itemInfo.addItemViews(view);
+            return itemInfo;
+        }
+
+        public void recycleItemInfo(HorizontalAbsListView view, int globalIndex, ItemInfo itemInfo) {
+            itemInfo.removeItemViews(view);
+            itemInfo.recycleItemViews(globalIndex, mAdapter, mViewCache);
+            mItemsCache.add(itemInfo);
+        }
+    }
+
     private static class MoveChildrenRunnable implements Runnable {
         private final HorizontalAbsListView mView;
 
@@ -783,7 +926,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
 
         @Override
         public void run() {
-            mView.moveChildren();
+            mView.moveItems();
         }
     }
 

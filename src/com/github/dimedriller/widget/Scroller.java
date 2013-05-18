@@ -136,8 +136,7 @@ public class Scroller  {
      * be in effect for apps targeting Honeycomb or newer.
      */
     public Scroller(Context context, Interpolator interpolator) {
-        this(context, interpolator,
-                context.getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.HONEYCOMB);
+        this(context, interpolator, false);
     }
 
     /**
@@ -175,7 +174,6 @@ public class Scroller  {
     }
 
     /**
-     *
      * Returns whether the scroller has finished scrolling.
      *
      * @return True if the scroller has finished scrolling, false otherwise.
@@ -324,8 +322,7 @@ public class Scroller  {
 
                     break;
             }
-        }
-        else {
+        } else {
             mCurrX = mFinalX;
             mCurrY = mFinalY;
             mFinished = true;
@@ -473,8 +470,7 @@ public class Scroller  {
         return mFlingFriction * mPhysicalCoeff * Math.exp(DECELERATION_RATE / decelMinusOne * l);
     }
 
-    static float viscousFluid(float x)
-    {
+    static float viscousFluid(float x) {
         x *= sViscousFluidScale;
         if (x < 1.0f) {
             x -= (1.0f - (float)Math.exp(-x));

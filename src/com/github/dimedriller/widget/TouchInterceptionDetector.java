@@ -45,7 +45,7 @@ public abstract class TouchInterceptionDetector {
                     newPointerIndex = 1;
                 else
                     newPointerIndex = 0;
-                mPreviousPointerID = event.getPointerId(newPointerIndex);;
+                mPreviousPointerID = event.getPointerId(newPointerIndex);
                 mPreviousX = event.getX(newPointerIndex);
                 mPreviousY = event.getY(newPointerIndex);
             }
