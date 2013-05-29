@@ -82,13 +82,13 @@ public class HorizontalListView extends HorizontalAbsListView {
 
     private Animation getInsertAnimation() {
         AlphaAnimation animation = new AlphaAnimation(0, 1);
-        animation.setDuration(2000);
+        animation.setDuration(300);
         return animation;
     }
 
     private Animation getDeleteAnimation() {
         AlphaAnimation animation = new AlphaAnimation(1, 0);
-        animation.setDuration(2000);
+        animation.setDuration(300);
         return animation;
     }
 
@@ -106,6 +106,8 @@ public class HorizontalListView extends HorizontalAbsListView {
 
         ArrayList<UpdateStep> updateSteps = new ArrayList<UpdateStep>();
         int itemsFullWidth = getDisplayedItemsFullWidth();
+        int paddingLeft = getPaddingLeft();
+        int paddingTop = getPaddingTop();
 
         for(DiffAtom diff : changes)
             if (diff instanceof InsertDiffAtom) {
@@ -125,7 +127,7 @@ public class HorizontalListView extends HorizontalAbsListView {
                     layoutLeft = items.get(insertIndex).getLeft();
                     items.add(insertIndex, itemInfo);
                 }
-                itemInfo.layoutViews(layoutLeft, getPaddingTop(), 0);
+                itemInfo.layoutViews(layoutLeft, paddingLeft, paddingTop, 0);
 
                 ((ListItemInfo)itemInfo).mView.startAnimation(getInsertAnimation());
                 updateSteps.add(new InsertStep(itemInfo));
@@ -149,7 +151,7 @@ public class HorizontalListView extends HorizontalAbsListView {
             itemsFullWidth += insertedItem.getWidth();
             int layoutLeft = items.get(items.size() - 1).getRight();
             items.add(insertedItem);
-            insertedItem.layoutViews(layoutLeft, getPaddingTop(), 0);
+            insertedItem.layoutViews(layoutLeft, paddingLeft, paddingTop, 0);
 
             ((ListItemInfo)insertedItem).mView.startAnimation(getInsertAnimation());
 
@@ -168,7 +170,7 @@ public class HorizontalListView extends HorizontalAbsListView {
             leftItemsWidth += insertedItem.getWidth();
             layoutRight -= insertedItem.getWidth();
             items.add(0, insertedItem);
-            insertedItem.layoutViews(layoutRight, getPaddingTop());
+            insertedItem.layoutViews(layoutRight, paddingLeft, getPaddingTop());
         }
 
         if (leftItemsWidth > 0) {
@@ -182,7 +184,7 @@ public class HorizontalListView extends HorizontalAbsListView {
 
         mFirstGlobalItemIndex = adapterOffset;
         UpdateStep[] updateStepsArray = updateSteps.toArray(new UpdateStep[updateSteps.size()]);
-        post(new InsertDeleteAction(updateStepsArray, 2000));
+        post(new InsertDeleteAction(updateStepsArray, 300));
     }
 
     private void onAdapterDataChanged() {
@@ -339,7 +341,7 @@ public class HorizontalListView extends HorizontalAbsListView {
             currentWidth = Math.min(currentWidth, finalWidth);
 
             if (mItems.indexOf(item) != -1)
-                item.layoutViews(item.getLeft(), item.getTop(), currentWidth);
+                item.layoutViews(item.getLeft(), getPaddingLeft(), getPaddingTop(), currentWidth);
 
             int delta = currentWidth - mPreviousWidth;
             mPreviousWidth = currentWidth;
@@ -379,7 +381,7 @@ public class HorizontalListView extends HorizontalAbsListView {
             currentWidth = Math.max(0, currentWidth);
 
             if (mItems.indexOf(item) != -1)
-                item.layoutViews(item.getLeft(), item.getTop(), currentWidth);
+                item.layoutViews(item.getLeft(), getPaddingLeft(), getPaddingTop(), currentWidth);
 
             int delta = currentWidth - mPreviousWidth;
             mPreviousWidth = currentWidth;

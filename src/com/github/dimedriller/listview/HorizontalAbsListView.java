@@ -1,7 +1,5 @@
 package com.github.dimedriller.listview;
 
-import java.util.ArrayList;
-
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
@@ -13,12 +11,13 @@ import android.util.SparseArray;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Adapter;
-
 import android.widget.AdapterView;
 import com.github.dimedriller.R;
-import com.github.dimedriller.widget.Scroller;
 import com.github.dimedriller.widget.GestureDetector;
+import com.github.dimedriller.widget.Scroller;
 import com.github.dimedriller.widget.TouchInterceptionDetector;
+
+import java.util.ArrayList;
 
 /**
  ***********************************************************************************************************************
@@ -257,7 +256,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         if (items.size() == 0)
             return 0;
         else
-            return items.get(0).getLeft() - getPaddingLeft();
+            return items.get(0).getLeft();
     }
 
     protected int getWidthWithoutPaddings() {
@@ -313,7 +312,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         int viewHeightWithoutPadding = getHeight() - paddingTop - getPaddingBottom();
 
         item.measureViews(viewWidthWithoutPadding, viewHeightWithoutPadding);
-        item.layoutViews(paddingLeft + itemRightX - item.getWidth(), paddingTop);
+        item.layoutViews(itemRightX - item.getWidth(), paddingLeft, paddingTop);
         return item.getWidth();
 
     }
@@ -325,7 +324,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         int viewHeightWithoutPadding = getHeight() - paddingTop - getPaddingBottom();
 
         item.measureViews(viewWidthWithoutPadding, viewHeightWithoutPadding);
-        item.layoutViews(paddingLeft + itemLeftX, paddingTop);
+        item.layoutViews(itemLeftX, paddingLeft, paddingTop);
         return item.getWidth();
     }
 
@@ -447,7 +446,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
 
         int indexToRemove = items.size() - 1;
         ItemInfo itemToRemove = items.get(indexToRemove);
-        int currentRight = itemToRemove.getRight() - getPaddingLeft() - dX;
+        int currentRight = itemToRemove.getRight() - dX;
         int viewWidthWithoutPadding = getWidthWithoutPaddings();
         int firstGlobalItemIndex = mFirstGlobalItemIndex;
 
@@ -795,15 +794,15 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
 
         protected abstract void onLayoutViews(int left, int top, int width);
 
-        public void layoutViews(int left, int top, int width) {
+        public void layoutViews(int left, int paddingLeft, int paddingTop, int width) {
             mLeft = left;
-            mTop = top;
+            mTop = 0;
             mRight = left + width;
-            onLayoutViews(left, top, width);
+            onLayoutViews(left + paddingLeft, paddingTop, width);
         }
 
-        public void layoutViews(int left, int top) {
-            layoutViews(left, top, mWidth);
+        public void layoutViews(int left, int paddingLeft, int paddingTop) {
+            layoutViews(left, paddingLeft, paddingTop, mWidth);
         }
 
         protected abstract void onOffsetViews(int dX);
