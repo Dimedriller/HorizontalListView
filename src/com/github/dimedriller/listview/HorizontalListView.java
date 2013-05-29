@@ -106,6 +106,7 @@ public class HorizontalListView extends HorizontalAbsListView {
 
         ArrayList<UpdateStep> updateSteps = new ArrayList<UpdateStep>();
         int itemsFullWidth = getDisplayedItemsFullWidth();
+        int itemsToDeleteCount = 0;
         int paddingLeft = getPaddingLeft();
         int paddingTop = getPaddingTop();
 
@@ -137,14 +138,17 @@ public class HorizontalListView extends HorizontalAbsListView {
                 ItemInfo itemInfo = items.get(deleteIndex);
                 ((ListItemInfo) itemInfo).mView.startAnimation(getDeleteAnimation());
 
+                itemsToDeleteCount++;
+                itemsFullWidth -= itemInfo.getWidth();
+
                 updateSteps.add(new DeleteStep(itemInfo));
             }
 
         int viewWidth = getWidthWithoutPaddings();
         int adapterItemsCount = getItemsManager().getItemInfoCount();
+        int adapterIndex = adapterOffset + items.size() - itemsToDeleteCount;
         while (  viewWidth > itemsFullWidth
-              && adapterOffset + items.size() < adapterItemsCount) {
-            int adapterIndex = adapterOffset + items.size();
+              && adapterIndex < adapterItemsCount) {
             ItemInfo insertedItem = itemsManager.createItemInfo(this, adapterIndex);
             insertedItem.measureViews(getWidthWithoutPaddings(), getHeightWithoutPaddings());
 
@@ -156,6 +160,7 @@ public class HorizontalListView extends HorizontalAbsListView {
             ((ListItemInfo)insertedItem).mView.startAnimation(getInsertAnimation());
 
             updateSteps.add(new InsertStep(insertedItem));
+            adapterIndex++;
         }
 
         int layoutRight = items.get(0).getLeft();

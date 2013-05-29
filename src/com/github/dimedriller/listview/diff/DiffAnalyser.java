@@ -162,7 +162,7 @@ public class DiffAnalyser {
                 }
 
                 for(int counterBaseList = baseListStartPivot + 1; counterBaseList < baseListItemsCount; counterBaseList++)
-                    changes.add(new DeleteDiffAtom(counterBaseList));
+                    changes.add(new DeleteDiffAtom(counterBaseList + insertOffset));
 
                 int changesCount = changes.size();
                 if (changesCount < metricsMin) {
