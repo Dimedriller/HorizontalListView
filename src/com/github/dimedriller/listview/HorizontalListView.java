@@ -1,14 +1,16 @@
 package com.github.dimedriller.listview;
 
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.database.DataSetObserver;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.widget.Adapter;
+import com.github.dimedriller.R;
 import com.github.dimedriller.listview.diff.DeleteDiffAtom;
 import com.github.dimedriller.listview.diff.DiffAnalyser;
 import com.github.dimedriller.listview.diff.DiffAtom;
@@ -22,6 +24,9 @@ import java.util.ArrayList;
  ***********************************************************************************************************************
  */
 public class HorizontalListView extends HorizontalAbsListView {
+    private static final int DEFAULT_EXPAND_COLLAPSE_DURATION = 300;
+    private static final int DEFAULT_EXPAND_COLLAPSE_DELAY = 0;
+
     private final DataSetObserver mDataSetObserver = new DataSetObserver() {
         @Override
         public void onChanged() {
@@ -34,19 +39,48 @@ public class HorizontalListView extends HorizontalAbsListView {
             super.onInvalidated();
         }
     };
-    private Runnable mInsertDeleteAction;
-    private Runnable mRearrangementAction;
+    private Animation mAddViewAnimation;
+    private Animation mRemoveViewAnimation;
+    private int mExpandCollapseDelay;
+    private int mExpandCollapseDuration;
 
     public HorizontalListView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
+        initViewParameters(context, attrs);
     }
 
     public HorizontalListView(Context context, AttributeSet attrs) {
         super(context, attrs);
+        initViewParameters(context, attrs);
     }
 
     public HorizontalListView(Context context) {
         super(context);
+        initViewParameters();
+    }
+
+    private static Animation extractAnimation(Context context, TypedArray rawParams, int paramID) {
+        int animationID = rawParams.getResourceId(paramID, 0);
+        if (animationID == 0)
+            return null;
+        else
+            return AnimationUtils.loadAnimation(context, animationID);
+    }
+
+    private void initViewParameters(Context context, AttributeSet attrs) {
+        TypedArray rawParams = context.obtainStyledAttributes(attrs, R.styleable.HorizontalListView);
+        mAddViewAnimation = extractAnimation(context, rawParams, R.styleable.HorizontalListView_addViewAnimation);
+        mRemoveViewAnimation = extractAnimation(context, rawParams, R.styleable.HorizontalListView_removeViewAnimation);
+        mExpandCollapseDelay = rawParams.getInteger(R.styleable.HorizontalListView_expandCollapseDelay,
+                DEFAULT_EXPAND_COLLAPSE_DELAY);
+        mExpandCollapseDuration = rawParams.getInteger(R.styleable.HorizontalListView_expandCollapseDuration,
+                DEFAULT_EXPAND_COLLAPSE_DURATION);
+        rawParams.recycle();
+    }
+
+    private void initViewParameters() {
+        mExpandCollapseDelay = DEFAULT_EXPAND_COLLAPSE_DELAY;
+        mExpandCollapseDuration = DEFAULT_EXPAND_COLLAPSE_DURATION;
     }
 
     @Override
@@ -80,16 +114,10 @@ public class HorizontalListView extends HorizontalAbsListView {
         return visibleItems;
     }
 
-    private Animation getInsertAnimation() {
-        AlphaAnimation animation = new AlphaAnimation(0, 1);
-        animation.setDuration(300);
-        return animation;
-    }
-
-    private Animation getDeleteAnimation() {
-        AlphaAnimation animation = new AlphaAnimation(1, 0);
-        animation.setDuration(300);
-        return animation;
+    private static void startItemAnimation(View itemView, Animation animation) {
+        if (animation == null)
+            return;
+        itemView.startAnimation(animation);
     }
 
     /**
@@ -130,13 +158,13 @@ public class HorizontalListView extends HorizontalAbsListView {
                 }
                 itemInfo.layoutViews(layoutLeft, paddingLeft, paddingTop, 0);
 
-                ((ListItemInfo)itemInfo).mView.startAnimation(getInsertAnimation());
+                startItemAnimation(((ListItemInfo)itemInfo).mView, mAddViewAnimation);
                 updateSteps.add(new InsertStep(itemInfo));
 
             } else {
                 int deleteIndex = ((DeleteDiffAtom) diff).getListPosition();
                 ItemInfo itemInfo = items.get(deleteIndex);
-                ((ListItemInfo) itemInfo).mView.startAnimation(getDeleteAnimation());
+                startItemAnimation(((ListItemInfo)itemInfo).mView, mRemoveViewAnimation);
 
                 itemsToDeleteCount++;
                 itemsFullWidth -= itemInfo.getWidth();
@@ -157,7 +185,7 @@ public class HorizontalListView extends HorizontalAbsListView {
             items.add(insertedItem);
             insertedItem.layoutViews(layoutLeft, paddingLeft, paddingTop, 0);
 
-            ((ListItemInfo)insertedItem).mView.startAnimation(getInsertAnimation());
+            startItemAnimation(((ListItemInfo)insertedItem).mView, mAddViewAnimation);
 
             updateSteps.add(new InsertStep(insertedItem));
             adapterIndex++;
@@ -189,7 +217,8 @@ public class HorizontalListView extends HorizontalAbsListView {
 
         mFirstGlobalItemIndex = adapterOffset;
         UpdateStep[] updateStepsArray = updateSteps.toArray(new UpdateStep[updateSteps.size()]);
-        post(new InsertDeleteAction(updateStepsArray, 300));
+        InsertDeleteAction insertDeleteAction = new InsertDeleteAction(updateStepsArray, mExpandCollapseDuration);
+        postDelayed(insertDeleteAction, mExpandCollapseDelay);
     }
 
     private void onAdapterDataChanged() {

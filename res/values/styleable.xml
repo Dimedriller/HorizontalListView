@@ -13,4 +13,10 @@
         <attr name="android:scrollbarTrackVertical"/>
         <attr name="android:scrollbars"/>
     </declare-styleable>
+    <declare-styleable name="HorizontalListView">
+        <attr name="addViewAnimation" format="reference" />
+        <attr name="removeViewAnimation" format="reference" />
+        <attr name="expandCollapseDelay" format="integer" />
+        <attr name="expandCollapseDuration" format="integer" />
+    </declare-styleable>
 </resources>
