@@ -216,14 +216,11 @@ public class HorizontalListView extends HorizontalAbsListView {
         }
 
         mFirstGlobalItemIndex = adapterOffset;
-        UpdateStep[] updateStepsArray = updateSteps.toArray(new UpdateStep[updateSteps.size()]);
-        InsertDeleteAction insertDeleteAction = new InsertDeleteAction(updateStepsArray, mExpandCollapseDuration);
+        InsertDeleteAction insertDeleteAction = new InsertDeleteAction(updateSteps, mExpandCollapseDuration);
         postDelayed(insertDeleteAction, mExpandCollapseDelay);
     }
 
     private void onAdapterDataChanged() {
-        stopScrolling();
-
         Object[] visibleItems = getVisibleItemsList();
         final DiffAnalyser diffAnalyser = new DiffAnalyser(visibleItems);
 
@@ -350,6 +347,7 @@ public class HorizontalListView extends HorizontalAbsListView {
     private interface UpdateStep {
         public void start();
         public int makeStep(float interpolatedTime);
+        public boolean isValid();
         public void finish();
     }
 
@@ -374,7 +372,6 @@ public class HorizontalListView extends HorizontalAbsListView {
             int currentWidth = Math.round(finalWidth * interpolatedTime);
             currentWidth = Math.min(currentWidth, finalWidth);
 
-            if (mItems.indexOf(item) != -1)
                 item.layoutViews(item.getLeft(), getPaddingLeft(), getPaddingTop(), currentWidth);
 
             int delta = currentWidth - mPreviousWidth;
@@ -385,6 +382,11 @@ public class HorizontalListView extends HorizontalAbsListView {
                 shiftItems(itemIndex + 1, items.size() - itemIndex - 1, delta);
 
             return delta;
+        }
+
+        @Override
+        public boolean isValid() {
+            return mItems.indexOf(mItem) != -1;
         }
 
         @Override
@@ -428,6 +430,11 @@ public class HorizontalListView extends HorizontalAbsListView {
         }
 
         @Override
+        public boolean isValid() {
+            return mItems.indexOf(mItem) != -1;
+        }
+
+        @Override
         public void finish() {
             ArrayList<ItemInfo> items = mItems;
             int itemIndex = items.indexOf(mItem);
@@ -464,18 +471,23 @@ public class HorizontalListView extends HorizontalAbsListView {
         }
 
         @Override
+        public boolean isValid() {
+            return true;
+        }
+
+        @Override
         public void finish() {
             // No action
         }
     }
 
     private class InsertDeleteAction implements Runnable {
-        private final UpdateStep[] mUpdateSteps;
+        private final ArrayList<UpdateStep> mUpdateSteps;
         private final long mStartTime;
         private final long mDuration;
         private final int mDeletionsCount;
 
-        public InsertDeleteAction(UpdateStep[] updateSteps, long duration) {
+        public InsertDeleteAction(ArrayList<UpdateStep> updateSteps, long duration) {
             mUpdateSteps = updateSteps;
             mStartTime = System.currentTimeMillis();
             mDuration = duration;
@@ -489,21 +501,45 @@ public class HorizontalListView extends HorizontalAbsListView {
             mDeletionsCount = deletionsCount;
         }
 
+        private int makeSteps(float interpolatedTime) {
+            ArrayList<UpdateStep> steps = mUpdateSteps;
+            int countSteps = steps.size();
+            int delta = 0;
+
+            // for each cycle is not user to avoid invocation of GC during animation
+            //noinspection ForLoopReplaceableByForEach
+            for(int counterStep = 0; counterStep < countSteps; counterStep++)
+                delta += steps.get(counterStep).makeStep(interpolatedTime);
+            return delta;
+        }
+
+        private void cleanUpSteps() {
+            ArrayList<UpdateStep> steps = mUpdateSteps;
+            for(int counterStep = steps.size() - 1; counterStep >= 0; counterStep--) {
+                if (steps.get(counterStep).isValid())
+                    continue;
+                steps.remove(counterStep);
+            }
+        }
+
+        private void finishSteps() {
+            for(UpdateStep step : mUpdateSteps)
+                step.finish();
+        }
+
         @Override
         public void run() {
+            cleanUpSteps();
+
             long currentTime = System.currentTimeMillis();
             float interpolatedTime = (float) (currentTime - mStartTime) / mDuration;
             interpolatedTime = Math.max(0.0f, interpolatedTime);
             interpolatedTime = Math.min(1.0f, interpolatedTime);
 
-            UpdateStep[] updateSteps = mUpdateSteps;
+            int updateDelta = makeSteps(interpolatedTime);
 
-            int updateDelta = 0;
-            for(UpdateStep updateStep : updateSteps)
-                updateDelta += updateStep.makeStep(interpolatedTime);
-
-            if (updateDelta > 0) // If total items width is increased than remove remove invisible items on right
-                removeItemsRight(-updateDelta);
+            if (updateDelta > 0) // If total items width is increased than remove invisible items on right
+                removeItemsRight(0);
             else if (updateDelta < 0){ // If total items width is decreased than add items on right if possible
                 mFirstGlobalItemIndex -= mDeletionsCount; // Items to be deleted was already removed from adapter but
                 int deltaDiff = addItemsRight(updateDelta) - updateDelta; // they are still visible and corresponding
@@ -517,8 +553,7 @@ public class HorizontalListView extends HorizontalAbsListView {
             }
 
             if (interpolatedTime == 1.0f)
-                for(UpdateStep updateStep : updateSteps)
-                    updateStep.finish();
+                finishSteps();
             else
                 post(this);
             invalidate();
