@@ -328,6 +328,18 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         return item.getWidth();
     }
 
+    protected int getGlobalLeftBoundIndex() {
+        return mFirstGlobalItemIndex;
+    }
+
+    protected int getGlobalRightBoundIndex() {
+        return mFirstGlobalItemIndex + mItems.size();
+    }
+
+    protected int getGlobalItemsCount() {
+        return mItemsManager.getItemInfoCount();
+    }
+
     /**
      *******************************************************************************************************************
      * Adds new views to right side of last view displayed
@@ -341,8 +353,8 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
 
         ItemInfoManager itemsManager = mItemsManager;
         ArrayList<ItemInfo> items = mItems;
-        int nextItemIndex = mFirstGlobalItemIndex + items.size();
-        int countGlobalItems = itemsManager.getItemInfoCount();
+        int nextItemIndex = getGlobalRightBoundIndex();
+        int countGlobalItems = getGlobalItemsCount();
         int currentRight = firstItemX - dX + getDisplayedItemsFullWidth();
 
         while (  currentRight < viewWidthWithoutPadding
@@ -414,7 +426,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
 
         ItemInfoManager itemsManager = mItemsManager;
         ArrayList<ItemInfo> items = mItems;
-        int firstGlobalItemIndex = mFirstGlobalItemIndex;
+        int firstGlobalItemIndex = getGlobalLeftBoundIndex();
         int nextItemIndex = firstGlobalItemIndex - 1;
         int currentLeft = firstItemX - dX;
 

@@ -44,6 +44,8 @@ public class HorizontalListView extends HorizontalAbsListView {
     private int mExpandCollapseDelay;
     private int mExpandCollapseDuration;
 
+    private InsertDeleteAction mInsertDeleteAction;
+
     @SuppressWarnings("UnusedDeclaration")
     public HorizontalListView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
@@ -108,6 +110,25 @@ public class HorizontalListView extends HorizontalAbsListView {
             adapter.registerDataSetObserver(mDataSetObserver);
     }
 
+    @Override
+    protected int getGlobalRightBoundIndex() {
+        InsertDeleteAction insertDeleteAction = mInsertDeleteAction;
+        if (insertDeleteAction == null)
+            return super.getGlobalRightBoundIndex();
+        else // Items to be deleted was already removed from adapter but they are still visible and corresponding
+            return super.getGlobalRightBoundIndex() - mInsertDeleteAction.getDeletionsCount(); // ItemInfo objects are in
+            // mItems list. So correction for adapter is necessary when items are added right.
+    }
+
+    @Override
+    protected int getGlobalItemsCount() {
+        InsertDeleteAction insertDeleteAction = mInsertDeleteAction;
+        if (insertDeleteAction == null)
+            return super.getGlobalItemsCount();
+        else
+            return super.getGlobalItemsCount() + insertDeleteAction.getDeletionsCount();
+    }
+
     private Object[] getVisibleItemsList() {
         ArrayList<ItemInfo> items = mItems;
         int itemsCount = items.size();
@@ -115,12 +136,6 @@ public class HorizontalListView extends HorizontalAbsListView {
         for(int counterItem = 0; counterItem < itemsCount; counterItem++)
             visibleItems[counterItem] = ((ListItemInfo)items.get(counterItem)).getItem();
         return visibleItems;
-    }
-
-    private static void startItemAnimation(View itemView, Animation animation) {
-        if (animation == null)
-            return;
-        itemView.startAnimation(animation);
     }
 
     /**
@@ -161,13 +176,13 @@ public class HorizontalListView extends HorizontalAbsListView {
                 }
                 itemInfo.layoutViews(layoutLeft, paddingLeft, paddingTop, 0);
 
-                startItemAnimation(((ListItemInfo) itemInfo).mView, mAddViewAnimation);
+                ((ListItemInfo) itemInfo).startAnimation(mAddViewAnimation);
                 updateSteps.add(new InsertStep(itemInfo));
 
             } else {
                 int deleteIndex = ((DeleteDiffAtom) diff).getListPosition();
                 ItemInfo itemInfo = items.get(deleteIndex);
-                startItemAnimation(((ListItemInfo) itemInfo).mView, mRemoveViewAnimation);
+                ((ListItemInfo) itemInfo).startAnimation(mRemoveViewAnimation);
 
                 itemsToDeleteCount++;
                 itemsFullWidth -= itemInfo.getWidth();
@@ -188,7 +203,7 @@ public class HorizontalListView extends HorizontalAbsListView {
             items.add(insertedItem);
             insertedItem.layoutViews(layoutLeft, paddingLeft, paddingTop, 0);
 
-            startItemAnimation(((ListItemInfo) insertedItem).mView, mAddViewAnimation);
+            ((ListItemInfo) insertedItem).startAnimation(mAddViewAnimation);
 
             updateSteps.add(new InsertStep(insertedItem));
             adapterIndex++;
@@ -330,6 +345,12 @@ public class HorizontalListView extends HorizontalAbsListView {
 
         public Object getItem() {
             return mItem;
+        }
+
+        public void startAnimation(Animation animation) {
+            if (animation == null)
+                return;
+            mView.startAnimation(animation);
         }
     }
 
@@ -504,6 +525,12 @@ public class HorizontalListView extends HorizontalAbsListView {
                     deletionsCount++;
             }
             mDeletionsCount = deletionsCount;
+
+            mInsertDeleteAction = this;
+        }
+
+        public int getDeletionsCount() {
+            return mDeletionsCount;
         }
 
         private int makeSteps(float interpolatedTime) {
@@ -546,10 +573,7 @@ public class HorizontalListView extends HorizontalAbsListView {
             if (updateDelta > 0) // If total items width is increased than remove invisible items on right
                 removeItemsRight(0);
             else if (updateDelta < 0){ // If total items width is decreased than add items on right if possible
-                mFirstGlobalItemIndex -= mDeletionsCount; // Items to be deleted was already removed from adapter but
-                int deltaDiff = addItemsRight(updateDelta) - updateDelta; // they are still visible and corresponding
-                mFirstGlobalItemIndex += mDeletionsCount;                 // ItemInfo objects are in mItems list. So
-                                                      // correction for adapter is necessary when items are added right.
+                int deltaDiff = addItemsRight(updateDelta) - updateDelta;
 
                 if (deltaDiff > 0) { // If visible part of list is at the end and if a visible item is removed
                     int newDeltaDiff = addItemsLeft(-deltaDiff); // than do left side correction to adjust visible
@@ -557,9 +581,10 @@ public class HorizontalListView extends HorizontalAbsListView {
                 }
             }
 
-            if (interpolatedTime == 1.0f)
+            if (interpolatedTime == 1.0f) {
                 finishSteps();
-            else
+                mInsertDeleteAction = null;
+            } else
                 post(this);
             invalidate();
         }
