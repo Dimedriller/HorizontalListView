@@ -149,7 +149,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
             initializeScrollbars(scrollBarStyle);
             scrollBarStyle.recycle();
         } catch (Exception exc) {
-            // On some devices stylable attributes for scrollbars can be absent
+            // On some devices styleable attributes for scrollbars can be absent
         }
 
         mItemsManager = createItemInfoManager(null);
@@ -381,7 +381,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         while (currentLeft + itemToRemove.getWidth() < 0) {
             currentLeft += itemToRemove.getWidth();
             items.remove(0);
-            itemsManager.recycleItemInfo(this, firstGlobalItemIndex, itemToRemove);
+            itemsManager.recycleItemInfo(this, itemToRemove);
             itemToRemove = items.get(0);
             firstGlobalItemIndex++;
         }
@@ -418,8 +418,8 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         int nextItemIndex = firstGlobalItemIndex - 1;
         int currentLeft = firstItemX - dX;
 
-        while (currentLeft >= 0
-                && nextItemIndex >= 0) {
+        while (  currentLeft >= 0
+              && nextItemIndex >= 0) {
             ItemInfo newItem = itemsManager.createItemInfo(this, nextItemIndex);
             items.add(0, newItem);
             currentLeft -= measureAndLayoutItemLeft(newItem, currentLeft + dX);
@@ -448,12 +448,11 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         ItemInfo itemToRemove = items.get(indexToRemove);
         int currentRight = itemToRemove.getRight() - dX;
         int viewWidthWithoutPadding = getWidthWithoutPaddings();
-        int firstGlobalItemIndex = mFirstGlobalItemIndex;
 
         while (currentRight - itemToRemove.getWidth() > viewWidthWithoutPadding) {
             currentRight -= itemToRemove.getWidth();
             items.remove(indexToRemove);
-            itemsManager.recycleItemInfo(this, firstGlobalItemIndex + indexToRemove, itemToRemove);
+            itemsManager.recycleItemInfo(this, itemToRemove);
             indexToRemove--;
             itemToRemove = items.get(indexToRemove);
         }
@@ -561,7 +560,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
             childHeight = child.getHeight();
 
             if (existingItems.size() == 0)
-                itemsManager.recycleItemInfo(this, 0, child);
+                itemsManager.recycleItemInfo(this, child);
         }
 
         if (widthMode == MeasureSpec.AT_MOST) {
@@ -630,7 +629,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         } else
             while (currentIndex - firstGlobalItemIndex < items.size()) {
                 ItemInfo currentItem = items.remove(items.size() - 1);
-                itemsManager.recycleItemInfo(this, firstGlobalItemIndex + items.size() - 1, currentItem);
+                itemsManager.recycleItemInfo(this, currentItem);
             }
     }
 
@@ -783,7 +782,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
 
         public abstract void removeItemViews(HorizontalAbsListView parent);
 
-        public abstract void recycleItemViews(int index, Adapter adapter, ViewCache viewCache);
+        public abstract void recycleItemViews(ViewCache viewCache);
 
         public abstract void measureViewsBySpecs(int parentSpecWidth,
                 int paddingHorizontal,
@@ -915,9 +914,9 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
             return itemInfo;
         }
 
-        public void recycleItemInfo(HorizontalAbsListView view, int globalIndex, ItemInfo itemInfo) {
+        public void recycleItemInfo(HorizontalAbsListView view, ItemInfo itemInfo) {
             itemInfo.removeItemViews(view);
-            itemInfo.recycleItemViews(globalIndex, mAdapter, mViewCache);
+            itemInfo.recycleItemViews(mViewCache);
             mItemsCache.add(itemInfo);
         }
     }

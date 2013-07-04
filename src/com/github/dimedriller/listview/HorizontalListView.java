@@ -44,16 +44,19 @@ public class HorizontalListView extends HorizontalAbsListView {
     private int mExpandCollapseDelay;
     private int mExpandCollapseDuration;
 
+    @SuppressWarnings("UnusedDeclaration")
     public HorizontalListView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
         initViewParameters(context, attrs);
     }
 
+    @SuppressWarnings("UnusedDeclaration")
     public HorizontalListView(Context context, AttributeSet attrs) {
         super(context, attrs);
         initViewParameters(context, attrs);
     }
 
+    @SuppressWarnings("UnusedDeclaration")
     public HorizontalListView(Context context) {
         super(context);
         initViewParameters();
@@ -158,13 +161,13 @@ public class HorizontalListView extends HorizontalAbsListView {
                 }
                 itemInfo.layoutViews(layoutLeft, paddingLeft, paddingTop, 0);
 
-                startItemAnimation(((ListItemInfo)itemInfo).mView, mAddViewAnimation);
+                startItemAnimation(((ListItemInfo) itemInfo).mView, mAddViewAnimation);
                 updateSteps.add(new InsertStep(itemInfo));
 
             } else {
                 int deleteIndex = ((DeleteDiffAtom) diff).getListPosition();
                 ItemInfo itemInfo = items.get(deleteIndex);
-                startItemAnimation(((ListItemInfo)itemInfo).mView, mRemoveViewAnimation);
+                startItemAnimation(((ListItemInfo) itemInfo).mView, mRemoveViewAnimation);
 
                 itemsToDeleteCount++;
                 itemsFullWidth -= itemInfo.getWidth();
@@ -185,7 +188,7 @@ public class HorizontalListView extends HorizontalAbsListView {
             items.add(insertedItem);
             insertedItem.layoutViews(layoutLeft, paddingLeft, paddingTop, 0);
 
-            startItemAnimation(((ListItemInfo)insertedItem).mView, mAddViewAnimation);
+            startItemAnimation(((ListItemInfo) insertedItem).mView, mAddViewAnimation);
 
             updateSteps.add(new InsertStep(insertedItem));
             adapterIndex++;
@@ -233,6 +236,7 @@ public class HorizontalListView extends HorizontalAbsListView {
     protected static class ListItemInfo extends HorizontalAbsListView.ItemInfo {
         private View mView;
         private Object mItem;
+        private int mViewTypeID;
 
         @Override
         public void createItemViews(HorizontalAbsListView parent,
@@ -244,6 +248,7 @@ public class HorizontalListView extends HorizontalAbsListView {
             mView = adapter.getView(itemIndex, cachedView, parent);
 
             mItem = adapter.getItem(itemIndex);
+            mViewTypeID = adapter.getItemViewType(itemIndex);
         }
 
         @Override
@@ -262,10 +267,10 @@ public class HorizontalListView extends HorizontalAbsListView {
         }
 
         @Override
-        public void recycleItemViews(int itemIndex, Adapter adapter, HorizontalAbsListView.ViewCache viewCache) {
-            if (itemIndex != -1) {
-                int viewType = adapter.getItemViewType(itemIndex);
-                viewCache.offer(viewType, mView);
+        public void recycleItemViews(HorizontalAbsListView.ViewCache viewCache) {
+            if (mViewTypeID != -1) {
+                viewCache.offer(mViewTypeID, mView);
+                mViewTypeID = -1;
             }
             mView = null;
             mItem = null;
@@ -440,7 +445,7 @@ public class HorizontalListView extends HorizontalAbsListView {
             int itemIndex = items.indexOf(mItem);
             if (itemIndex != -1) {
                 items.remove(itemIndex);
-                getItemsManager().recycleItemInfo(HorizontalListView.this, -1, mItem);
+                getItemsManager().recycleItemInfo(HorizontalListView.this, mItem);
             }
         }
     }
