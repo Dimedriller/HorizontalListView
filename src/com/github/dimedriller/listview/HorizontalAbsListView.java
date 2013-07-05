@@ -328,18 +328,6 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         return item.getWidth();
     }
 
-    protected int getGlobalLeftBoundIndex() {
-        return mFirstGlobalItemIndex;
-    }
-
-    protected int getGlobalRightBoundIndex() {
-        return mFirstGlobalItemIndex + mItems.size();
-    }
-
-    protected int getGlobalItemsCount() {
-        return mItemsManager.getItemInfoCount();
-    }
-
     /**
      *******************************************************************************************************************
      * Adds new views to right side of last view displayed
@@ -353,8 +341,8 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
 
         ItemInfoManager itemsManager = mItemsManager;
         ArrayList<ItemInfo> items = mItems;
-        int nextItemIndex = getGlobalRightBoundIndex();
-        int countGlobalItems = getGlobalItemsCount();
+        int nextItemIndex = mFirstGlobalItemIndex + items.size();;
+        int countGlobalItems = itemsManager.getItemInfoCount();
         int currentRight = firstItemX - dX + getDisplayedItemsFullWidth();
 
         while (  currentRight < viewWidthWithoutPadding
@@ -426,7 +414,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
 
         ItemInfoManager itemsManager = mItemsManager;
         ArrayList<ItemInfo> items = mItems;
-        int firstGlobalItemIndex = getGlobalLeftBoundIndex();
+        int firstGlobalItemIndex = mFirstGlobalItemIndex;
         int nextItemIndex = firstGlobalItemIndex - 1;
         int currentLeft = firstItemX - dX;
 
@@ -760,6 +748,8 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         private int mTop;
         private int mRight;
 
+        private boolean mIsRecyclingAvailable;
+
         protected void setWidth(int width) {
             mWidth = width;
         }
@@ -840,6 +830,14 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         public abstract int findAdapterItemIndex(int index, int x, int y);
 
         public abstract View findAdapterViewItem(int x, int y);
+
+        public void setRecyclingAvailable(boolean isAvailable) {
+            mIsRecyclingAvailable = isAvailable;
+        }
+
+        public boolean isRecyclingAvailable() {
+            return mIsRecyclingAvailable;
+        }
     }
 
     protected static class ViewCache {
@@ -929,7 +927,8 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         public void recycleItemInfo(HorizontalAbsListView view, ItemInfo itemInfo) {
             itemInfo.removeItemViews(view);
             itemInfo.recycleItemViews(mViewCache);
-            mItemsCache.add(itemInfo);
+            if (itemInfo.isRecyclingAvailable())
+                mItemsCache.add(itemInfo);
         }
     }
 

@@ -4,7 +4,6 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.database.DataSetObserver;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.Animation;
@@ -15,6 +14,7 @@ import com.github.dimedriller.listview.diff.DeleteDiffAtom;
 import com.github.dimedriller.listview.diff.DiffAnalyser;
 import com.github.dimedriller.listview.diff.DiffAtom;
 import com.github.dimedriller.listview.diff.InsertDiffAtom;
+import com.github.dimedriller.log.Log;
 
 import java.util.ArrayList;
 
@@ -30,7 +30,16 @@ public class HorizontalListView extends HorizontalAbsListView {
     private final DataSetObserver mDataSetObserver = new DataSetObserver() {
         @Override
         public void onChanged() {
-            onAdapterDataChanged();
+            if (mInsertDeleteAction == null) { // If there are no current updating action than start new updating action
+                onAdapterDataChanged();
+                return;
+            }
+
+            if (mPostponedDataChangedUpdate != null) // If one update already scheduled ignore another one
+                return;
+
+            mPostponedDataChangedUpdate = new PostponedDataChangedUpdate();  // Start new update when current one is
+            postDelayed(mPostponedDataChangedUpdate, mInsertDeleteAction.getRemainingTime() + 100); // finished + 100ms
         }
 
         @Override
@@ -45,6 +54,7 @@ public class HorizontalListView extends HorizontalAbsListView {
     private int mExpandCollapseDuration;
 
     private InsertDeleteAction mInsertDeleteAction;
+    private Runnable mPostponedDataChangedUpdate;
 
     @SuppressWarnings("UnusedDeclaration")
     public HorizontalListView(Context context, AttributeSet attrs, int defStyle) {
@@ -111,22 +121,41 @@ public class HorizontalListView extends HorizontalAbsListView {
     }
 
     @Override
-    protected int getGlobalRightBoundIndex() {
+    protected int addItemsRight(int dX) {
+        int firstItemOffset;
         InsertDeleteAction insertDeleteAction = mInsertDeleteAction;
         if (insertDeleteAction == null)
-            return super.getGlobalRightBoundIndex();
-        else // Items to be deleted was already removed from adapter but they are still visible and corresponding
-            return super.getGlobalRightBoundIndex() - mInsertDeleteAction.getDeletionsCount(); // ItemInfo objects are in
-            // mItems list. So correction for adapter is necessary when items are added right.
+            firstItemOffset = 0;
+        else        // Items to be deleted was already removed from adapter but they are still visible and corresponding
+            firstItemOffset = insertDeleteAction.getDeletionsCount();         // ItemInfo objects are in mItems list. So
+                                                     //  correction for adapter is necessary when items are added right.
+
+        mFirstGlobalItemIndex -= firstItemOffset;
+        int newDX = super.addItemsRight(dX);
+        mFirstGlobalItemIndex += firstItemOffset;
+        return newDX;
     }
 
     @Override
-    protected int getGlobalItemsCount() {
+    protected void removeItemsLeft(int dX) {
+        super.removeItemsLeft(dX);
+
         InsertDeleteAction insertDeleteAction = mInsertDeleteAction;
-        if (insertDeleteAction == null)
-            return super.getGlobalItemsCount();
-        else
-            return super.getGlobalItemsCount() + insertDeleteAction.getDeletionsCount();
+        if (insertDeleteAction != null) {
+            int oldItemsToDeleteCount = insertDeleteAction.getDeletionsCount();
+            insertDeleteAction.cleanUpSteps();
+            int newItemsToDeleteCount = insertDeleteAction.getDeletionsCount();
+            mFirstGlobalItemIndex += newItemsToDeleteCount - oldItemsToDeleteCount;
+        }
+    }
+
+    @Override
+    protected void removeItemsRight(int dX) {
+        super.removeItemsRight(dX);
+
+        InsertDeleteAction insertDeleteAction = mInsertDeleteAction;
+        if (insertDeleteAction != null)
+            insertDeleteAction.cleanUpSteps();
     }
 
     private Object[] getVisibleItemsList() {
@@ -145,7 +174,7 @@ public class HorizontalListView extends HorizontalAbsListView {
      */
     private void startListUpdate(int adapterOffset, DiffAtom[] changes) {
         for(DiffAtom change : changes)
-            Log.d("HorizontalListView", change.toString());
+            Log.d(change);
 
         ItemInfoManager itemsManager = getItemsManager();
         ArrayList<ItemInfo> items = mItems;
@@ -159,7 +188,7 @@ public class HorizontalListView extends HorizontalAbsListView {
         for(DiffAtom diff : changes)
             if (diff instanceof InsertDiffAtom) {
                 InsertDiffAtom insertDiff = (InsertDiffAtom) diff;
-                ItemInfo itemInfo = itemsManager.createItemInfo(this, insertDiff.getAdapterPosition());
+                ListItemInfo itemInfo = (ListItemInfo) itemsManager.createItemInfo(this, insertDiff.getAdapterPosition());
                 itemInfo.measureViews(getWidthWithoutPaddings(), getHeightWithoutPaddings());
 
                 itemsFullWidth += itemInfo.getWidth();
@@ -176,13 +205,13 @@ public class HorizontalListView extends HorizontalAbsListView {
                 }
                 itemInfo.layoutViews(layoutLeft, paddingLeft, paddingTop, 0);
 
-                ((ListItemInfo) itemInfo).startAnimation(mAddViewAnimation);
+                itemInfo.startAnimation(mAddViewAnimation);
                 updateSteps.add(new InsertStep(itemInfo));
 
             } else {
                 int deleteIndex = ((DeleteDiffAtom) diff).getListPosition();
-                ItemInfo itemInfo = items.get(deleteIndex);
-                ((ListItemInfo) itemInfo).startAnimation(mRemoveViewAnimation);
+                ListItemInfo itemInfo = (ListItemInfo) items.get(deleteIndex);
+                itemInfo.startAnimation(mRemoveViewAnimation);
 
                 itemsToDeleteCount++;
                 itemsFullWidth -= itemInfo.getWidth();
@@ -195,7 +224,7 @@ public class HorizontalListView extends HorizontalAbsListView {
         int adapterIndex = adapterOffset + items.size() - itemsToDeleteCount;
         while (  viewWidth > itemsFullWidth
               && adapterIndex < adapterItemsCount) {
-            ItemInfo insertedItem = itemsManager.createItemInfo(this, adapterIndex);
+            ListItemInfo insertedItem = (ListItemInfo) itemsManager.createItemInfo(this, adapterIndex);
             insertedItem.measureViews(getWidthWithoutPaddings(), getHeightWithoutPaddings());
 
             itemsFullWidth += insertedItem.getWidth();
@@ -203,7 +232,7 @@ public class HorizontalListView extends HorizontalAbsListView {
             items.add(insertedItem);
             insertedItem.layoutViews(layoutLeft, paddingLeft, paddingTop, 0);
 
-            ((ListItemInfo) insertedItem).startAnimation(mAddViewAnimation);
+            insertedItem.startAnimation(mAddViewAnimation);
 
             updateSteps.add(new InsertStep(insertedItem));
             adapterIndex++;
@@ -234,8 +263,8 @@ public class HorizontalListView extends HorizontalAbsListView {
         }
 
         mFirstGlobalItemIndex = adapterOffset;
-        InsertDeleteAction insertDeleteAction = new InsertDeleteAction(updateSteps, mExpandCollapseDuration);
-        postDelayed(insertDeleteAction, mExpandCollapseDelay);
+        mInsertDeleteAction = new InsertDeleteAction(updateSteps, mExpandCollapseDuration);
+        postDelayed(mInsertDeleteAction, mExpandCollapseDelay);
     }
 
     private void onAdapterDataChanged() {
@@ -264,6 +293,7 @@ public class HorizontalListView extends HorizontalAbsListView {
 
             mItem = adapter.getItem(itemIndex);
             mViewTypeID = adapter.getItemViewType(itemIndex);
+            setRecyclingAvailable(true);
         }
 
         @Override
@@ -278,6 +308,7 @@ public class HorizontalListView extends HorizontalAbsListView {
 
         @Override
         public void removeItemViews(HorizontalAbsListView parent) {
+            mView.clearAnimation();
             parent.removeViewInLayout(mView);
         }
 
@@ -352,6 +383,12 @@ public class HorizontalListView extends HorizontalAbsListView {
                 return;
             mView.startAnimation(animation);
         }
+
+        @Override
+        public String toString() {
+            return getClass().getSimpleName() + " item: " + mItem + " @ "
+                    + Integer.toString(hashCode(), 16).toUpperCase();
+        }
     }
 
     protected static class ListItemInfoManager extends ItemInfoManager {
@@ -378,12 +415,13 @@ public class HorizontalListView extends HorizontalAbsListView {
     }
 
     private class InsertStep implements UpdateStep {
-        private final ItemInfo mItem;
+        private final ListItemInfo mItem;
 
         private int mPreviousWidth;
 
-        public InsertStep(ItemInfo item) {
+        public InsertStep(ListItemInfo item) {
             mItem = item;
+            item.setRecyclingAvailable(false);
         }
 
         @Override
@@ -398,21 +436,20 @@ public class HorizontalListView extends HorizontalAbsListView {
             int currentWidth = Math.round(finalWidth * interpolatedTime);
             currentWidth = Math.min(currentWidth, finalWidth);
 
-                item.layoutViews(item.getLeft(), getPaddingLeft(), getPaddingTop(), currentWidth);
+            item.layoutViews(item.getLeft(), getPaddingLeft(), getPaddingTop(), currentWidth);
 
             int delta = currentWidth - mPreviousWidth;
             mPreviousWidth = currentWidth;
             ArrayList<ItemInfo> items = mItems;
             int itemIndex = items.indexOf(item);
-            if (itemIndex != -1)
-                shiftItems(itemIndex + 1, items.size() - itemIndex - 1, delta);
+            shiftItems(itemIndex + 1, items.size() - itemIndex - 1, delta);
 
             return delta;
         }
 
         @Override
         public boolean isValid() {
-            return mItems.indexOf(mItem) != -1;
+            return mItem.getItem() != null;
         }
 
         @Override
@@ -422,12 +459,13 @@ public class HorizontalListView extends HorizontalAbsListView {
     }
 
     private class DeleteStep implements UpdateStep {
-        private final ItemInfo mItem;
+        private final ListItemInfo mItem;
 
         private int mPreviousWidth;
 
-        private DeleteStep(ItemInfo item) {
+        private DeleteStep(ListItemInfo item) {
             mItem = item;
+            item.setRecyclingAvailable(false);
         }
 
         @Override
@@ -442,22 +480,20 @@ public class HorizontalListView extends HorizontalAbsListView {
             int currentWidth = Math.round(startWidth * (1 - interpolatedTime));
             currentWidth = Math.max(0, currentWidth);
 
-            if (mItems.indexOf(item) != -1)
-                item.layoutViews(item.getLeft(), getPaddingLeft(), getPaddingTop(), currentWidth);
+            item.layoutViews(item.getLeft(), getPaddingLeft(), getPaddingTop(), currentWidth);
 
             int delta = currentWidth - mPreviousWidth;
             mPreviousWidth = currentWidth;
             ArrayList<ItemInfo> items = mItems;
             int itemIndex = items.indexOf(item);
-            if (itemIndex != -1)
-                shiftItems(itemIndex + 1, items.size() - itemIndex - 1, delta);
+            shiftItems(itemIndex + 1, items.size() - itemIndex - 1, delta);
 
             return delta;
         }
 
         @Override
         public boolean isValid() {
-            return mItems.indexOf(mItem) != -1;
+            return mItem.getItem() != null;
         }
 
         @Override
@@ -511,7 +547,7 @@ public class HorizontalListView extends HorizontalAbsListView {
         private final ArrayList<UpdateStep> mUpdateSteps;
         private final long mStartTime;
         private final long mDuration;
-        private final int mDeletionsCount;
+        private int mDeletionsCount;
 
         public InsertDeleteAction(ArrayList<UpdateStep> updateSteps, long duration) {
             mUpdateSteps = updateSteps;
@@ -525,8 +561,12 @@ public class HorizontalListView extends HorizontalAbsListView {
                     deletionsCount++;
             }
             mDeletionsCount = deletionsCount;
+        }
 
-            mInsertDeleteAction = this;
+        public long getRemainingTime() {
+            long remainingTime = mDuration - System.currentTimeMillis() + mStartTime;
+            Math.max(0, remainingTime);
+            return remainingTime;
         }
 
         public int getDeletionsCount() {
@@ -538,19 +578,22 @@ public class HorizontalListView extends HorizontalAbsListView {
             int countSteps = steps.size();
             int delta = 0;
 
-            // for each cycle is not user to avoid invocation of GC during animation
+            // for each cycle is not used to avoid invocation of GC during animation
             //noinspection ForLoopReplaceableByForEach
             for(int counterStep = 0; counterStep < countSteps; counterStep++)
                 delta += steps.get(counterStep).makeStep(interpolatedTime);
             return delta;
         }
 
-        private void cleanUpSteps() {
+        public void cleanUpSteps() {
             ArrayList<UpdateStep> steps = mUpdateSteps;
             for(int counterStep = steps.size() - 1; counterStep >= 0; counterStep--) {
-                if (steps.get(counterStep).isValid())
+                UpdateStep step = steps.get(counterStep);
+                if (step.isValid())
                     continue;
                 steps.remove(counterStep);
+                if (step instanceof DeleteStep)
+                    mDeletionsCount--;
             }
         }
 
@@ -561,8 +604,6 @@ public class HorizontalListView extends HorizontalAbsListView {
 
         @Override
         public void run() {
-            cleanUpSteps();
-
             long currentTime = System.currentTimeMillis();
             float interpolatedTime = (float) (currentTime - mStartTime) / mDuration;
             interpolatedTime = Math.max(0.0f, interpolatedTime);
@@ -587,6 +628,14 @@ public class HorizontalListView extends HorizontalAbsListView {
             } else
                 post(this);
             invalidate();
+        }
+    }
+
+    private class PostponedDataChangedUpdate implements Runnable {
+        @Override
+        public void run() {
+            onAdapterDataChanged();
+            mPostponedDataChangedUpdate = null;
         }
     }
 }
