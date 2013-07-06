@@ -44,8 +44,8 @@ public class HorizontalListView extends HorizontalAbsListView {
 
         @Override
         public void onInvalidated() {
-            // TODO: Implement this method
-            super.onInvalidated();
+            // TODO: Implement smooth version of invalidating
+            requestLayout();
         }
     };
     private Animation mAddViewAnimation;
@@ -156,6 +156,11 @@ public class HorizontalListView extends HorizontalAbsListView {
         InsertDeleteAction insertDeleteAction = mInsertDeleteAction;
         if (insertDeleteAction != null)
             insertDeleteAction.cleanUpSteps();
+    }
+
+    @Override
+    protected boolean isTapItemAvailable() {
+        return mInsertDeleteAction == null;
     }
 
     private Object[] getVisibleItemsList() {

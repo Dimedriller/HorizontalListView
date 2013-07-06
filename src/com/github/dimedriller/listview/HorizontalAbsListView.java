@@ -726,7 +726,14 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         return items.get(0).getWidth() * mFirstGlobalItemIndex - getFirstItemOffset();
     }
 
+    protected boolean isTapItemAvailable() {
+        return true;
+    }
+
     private void handleItemTap(int x, int y) {
+        if (!isTapItemAvailable())
+            return;
+
         int tappedItemIndex = findItemInfoIndexByXY(x, y);
         if (tappedItemIndex == -1)
             return;
