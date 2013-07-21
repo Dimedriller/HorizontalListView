@@ -55,6 +55,7 @@ public class HorizontalListView extends HorizontalAbsListView {
 
     private InsertDeleteAction mInsertDeleteAction;
     private Runnable mPostponedDataChangedUpdate;
+    private Runnable mPostponedLayoutUpdate;
 
     @SuppressWarnings("UnusedDeclaration")
     public HorizontalListView(Context context, AttributeSet attrs, int defStyle) {
@@ -156,6 +157,18 @@ public class HorizontalListView extends HorizontalAbsListView {
         InsertDeleteAction insertDeleteAction = mInsertDeleteAction;
         if (insertDeleteAction != null)
             insertDeleteAction.cleanUpSteps();
+    }
+
+    @Override
+    protected void onLayout(boolean isChanged, int l, int t, int r, int b) {
+        if (mInsertDeleteAction != null) {
+            if (mPostponedLayoutUpdate != null)
+                removeCallbacks(mPostponedLayoutUpdate);
+            mPostponedLayoutUpdate = new PostponedLayoutUpdate(isChanged, l, t, r, b);
+            postDelayed(mPostponedLayoutUpdate, mInsertDeleteAction.getRemainingTime());
+            return;
+        }
+        super.onLayout(isChanged, l, t, r, b);
     }
 
     @Override
@@ -624,7 +637,7 @@ public class HorizontalListView extends HorizontalAbsListView {
                 int deltaDiff = addItemsRight(updateDelta) - updateDelta;
 
                 if (deltaDiff > 0) { // If visible part of list is at the end and if a visible item is removed
-                    int newDeltaDiff = addItemsLeft(-deltaDiff); // than do left side correction to adjust visible
+                    int newDeltaDiff = addItemsLeft(-deltaDiff); // than do mLeft side correction to adjust visible
                     shiftItems(-newDeltaDiff);                   // items on right side
                 }
             }
@@ -643,6 +656,27 @@ public class HorizontalListView extends HorizontalAbsListView {
         public void run() {
             onAdapterDataChanged();
             mPostponedDataChangedUpdate = null;
+        }
+    }
+
+    private class PostponedLayoutUpdate implements Runnable {
+        private final boolean mIsChanged;
+        private final int mLeft;
+        private final int mTop;
+        private final int mRight;
+        private final int mBottom;
+
+        private PostponedLayoutUpdate(boolean isChanged, int left, int top, int right, int bottom) {
+            mIsChanged = isChanged;
+            mLeft = left;
+            mTop = top;
+            mRight = right;
+            mBottom = bottom;
+        }
+
+        @Override
+        public void run() {
+            onLayout(mIsChanged, mLeft, mTop, mRight, mBottom);
         }
     }
 }
