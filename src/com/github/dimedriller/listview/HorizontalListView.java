@@ -38,7 +38,7 @@ public class HorizontalListView extends HorizontalAbsListView {
             if (mPostponedDataChangedUpdate != null) // If one update already scheduled ignore another one
                 return;
 
-            mPostponedDataChangedUpdate = new PostponedDataChangedUpdate();  // Start new update when current one is
+            mPostponedDataChangedUpdate = new PostponedDataChangedUpdate(); // Start new update when current one is
             postDelayed(mPostponedDataChangedUpdate, mInsertDeleteAction.getRemainingTime() + 100); // finished + 100ms
         }
 
@@ -111,6 +111,14 @@ public class HorizontalListView extends HorizontalAbsListView {
 
     @Override
     public void setAdapter(Adapter adapter) {
+        Log.d(Integer.toHexString(hashCode()));
+
+        if (mInsertDeleteAction != null) {
+            Log.d(Integer.toHexString(hashCode()), "mInsertDeleteAction != null");
+            removeCallbacks(mInsertDeleteAction);
+            mInsertDeleteAction = null;
+        }
+
         Adapter oldAdapter = getAdapter();
         if (oldAdapter != null)
             oldAdapter.unregisterDataSetObserver(mDataSetObserver);
@@ -127,9 +135,9 @@ public class HorizontalListView extends HorizontalAbsListView {
         InsertDeleteAction insertDeleteAction = mInsertDeleteAction;
         if (insertDeleteAction == null)
             firstItemOffset = 0;
-        else        // Items to be deleted was already removed from adapter but they are still visible and corresponding
-            firstItemOffset = insertDeleteAction.getDeletionsCount();         // ItemInfo objects are in mItems list. So
-                                                     //  correction for adapter is necessary when items are added right.
+        else // Items to be deleted was already removed from adapter but they are still visible and corresponding
+            firstItemOffset = insertDeleteAction.getDeletionsCount(); // ItemInfo objects are in mItems list. So
+        // correction for adapter is necessary when items are added right.
 
         mFirstGlobalItemIndex -= firstItemOffset;
         int newDX = super.addItemsRight(dX);
@@ -161,14 +169,16 @@ public class HorizontalListView extends HorizontalAbsListView {
 
     @Override
     protected void onLayout(boolean isChanged, int l, int t, int r, int b) {
-        if (mInsertDeleteAction != null) {
+        if (mInsertDeleteAction == null) {
+            Log.d(Integer.toHexString(hashCode()), isChanged, l, t, r, b);
+            super.onLayout(isChanged, l, t, r, b);
+        } else {
+            Log.d(Integer.toHexString(hashCode()), "Postponed");
             if (mPostponedLayoutUpdate != null)
                 removeCallbacks(mPostponedLayoutUpdate);
             mPostponedLayoutUpdate = new PostponedLayoutUpdate(isChanged, l, t, r, b);
             postDelayed(mPostponedLayoutUpdate, mInsertDeleteAction.getRemainingTime());
-            return;
         }
-        super.onLayout(isChanged, l, t, r, b);
     }
 
     @Override
@@ -646,7 +656,7 @@ public class HorizontalListView extends HorizontalAbsListView {
 
                 if (deltaDiff > 0) { // If visible part of list is at the end and if a visible item is removed
                     int newDeltaDiff = addItemsLeft(-deltaDiff); // than do mLeft side correction to adjust visible
-                    shiftItems(-newDeltaDiff);                   // items on right side
+                    shiftItems(-newDeltaDiff); // items on right side
                 }
             }
 
