@@ -30,16 +30,7 @@ public class HorizontalListView extends HorizontalAbsListView {
     private final DataSetObserver mDataSetObserver = new DataSetObserver() {
         @Override
         public void onChanged() {
-            if (mInsertDeleteAction == null) { // If there are no current updating action than start new updating action
-                onAdapterDataChanged();
-                return;
-            }
-
-            if (mPostponedDataChangedUpdate != null) // If one update already scheduled ignore another one
-                return;
-
-            mPostponedDataChangedUpdate = new PostponedDataChangedUpdate(); // Start new update when current one is
-            postDelayed(mPostponedDataChangedUpdate, mInsertDeleteAction.getRemainingTime() + 100); // finished + 100ms
+            onAdapterDataChanged();
         }
 
         @Override
@@ -111,12 +102,22 @@ public class HorizontalListView extends HorizontalAbsListView {
 
     @Override
     public void setAdapter(Adapter adapter) {
-        Log.d(Integer.toHexString(hashCode()));
+        Log.dh(this);
 
         if (mInsertDeleteAction != null) {
-            Log.d(Integer.toHexString(hashCode()), "mInsertDeleteAction != null");
+            Log.dh(this, "mInsertDeleteAction != null");
             removeCallbacks(mInsertDeleteAction);
             mInsertDeleteAction = null;
+        }
+        if (mPostponedDataChangedUpdate != null) {
+            Log.dh(this, "mPostponedDataChangedUpdate != null");
+            removeCallbacks(mPostponedDataChangedUpdate);
+            mInsertDeleteAction = null;
+        }
+        if (mPostponedLayoutUpdate != null) {
+            Log.dh(this, "mPostponedLayoutUpdate != null");
+            removeCallbacks(mPostponedLayoutUpdate);
+            mPostponedLayoutUpdate = null;
         }
 
         Adapter oldAdapter = getAdapter();
@@ -170,10 +171,10 @@ public class HorizontalListView extends HorizontalAbsListView {
     @Override
     protected void onLayout(boolean isChanged, int l, int t, int r, int b) {
         if (mInsertDeleteAction == null) {
-            Log.d(Integer.toHexString(hashCode()), isChanged, l, t, r, b);
+            Log.dh(this, isChanged, l, t, r, b);
             super.onLayout(isChanged, l, t, r, b);
         } else {
-            Log.d(Integer.toHexString(hashCode()), "Postponed");
+            Log.dh(this, "Postponed");
             if (mPostponedLayoutUpdate != null)
                 removeCallbacks(mPostponedLayoutUpdate);
             mPostponedLayoutUpdate = new PostponedLayoutUpdate(isChanged, l, t, r, b);
@@ -202,7 +203,7 @@ public class HorizontalListView extends HorizontalAbsListView {
      */
     private void startListUpdate(int adapterOffset, DiffAtom[] changes) {
         for(DiffAtom change : changes)
-            Log.d(change);
+            Log.dh(this, change);
 
         ItemInfoManager itemsManager = getItemsManager();
         ArrayList<ItemInfo> items = mItems;
@@ -305,7 +306,22 @@ public class HorizontalListView extends HorizontalAbsListView {
         postDelayed(mInsertDeleteAction, mExpandCollapseDelay);
     }
 
+    private boolean checkIfCanStartUpdate() {
+        if (mInsertDeleteAction == null) // If there is no current updating action than new one can be started
+            return true;
+
+        if (mPostponedDataChangedUpdate != null) // If an update already scheduled ignore another one
+            return false;
+
+        mPostponedDataChangedUpdate = new PostponedDataChangedUpdate(); // Start new update when current one is
+        postDelayed(mPostponedDataChangedUpdate, mInsertDeleteAction.getRemainingTime()); // finished
+        return false;
+    }
+
     private void onAdapterDataChanged() {
+        if (!checkIfCanStartUpdate())
+            return;
+
         Object[] visibleItems = getVisibleItemsList();
         final DiffAnalyser diffAnalyser = new DiffAnalyser(visibleItems);
 
