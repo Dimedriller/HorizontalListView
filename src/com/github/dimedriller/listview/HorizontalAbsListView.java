@@ -10,6 +10,7 @@ import android.util.AttributeSet;
 import android.util.SparseArray;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.widget.Adapter;
 import android.widget.AdapterView;
 import com.github.dimedriller.R;
@@ -40,7 +41,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         @Override
         protected boolean onDoInterception(float previousX, float previousY, float currentX, float currentY) {
             float deltaX = Math.abs(currentX - previousX);
-            return deltaX > Math.abs(currentY - previousY) && deltaX > 50; // TODO Find correct constant
+            return deltaX > Math.abs(currentY - previousY);
         }
     };
 
@@ -82,18 +83,23 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         initView(context);
     }
 
-    private GestureDetector createGestureDetector(Context context) {
+    private GestureDetector createGestureDetector(final Context context) {
         GestureDetector gestureDetector = new GestureDetector(
                 context,
                 new GestureDetector.OnGestureListener() {
+                    private final float mTouchSlope = ViewConfiguration.get(context).getScaledTouchSlop();
+                    private float mMovingDistance;
+
                     @Override
                     public boolean onUp(MotionEvent e) {
                         hidePressedState();
-                        return true;
+                        return Math.abs(mMovingDistance) >= mTouchSlope;
                     }
 
                     @Override
                     public boolean onDown(MotionEvent e) {
+                        mMovingDistance = 0;
+
                         stopScrolling();
                         return true;
                     }
@@ -110,29 +116,46 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
 
                     @Override
                     public boolean onSingleTapUp(MotionEvent e) {
+                        if (Math.abs(mMovingDistance) > mTouchSlope)
+                            return false;
+
                         hidePressedState();
 
                         int x = Math.round(e.getX());
                         int y = Math.round(e.getY());
-                        handleItemTap(x, y);
-                        return true;
+                        return handleItemTap(x, y, TapType.CLICK);
                     }
 
                     @Override
                     public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+                        mMovingDistance += distanceX;
+
                         awakenScrollBars();
-                        return startScroll(distanceX);
+                        startScroll(distanceX);
+                        return Math.abs(distanceX) > Math.abs(distanceY);
                     }
 
                     @Override
                     public void onLongPress(MotionEvent e) {
-                        // No action
+                        if (Math.abs(mMovingDistance) > mTouchSlope)
+                            return;
+
+                        hidePressedState();
+
+                        int x = Math.round(e.getX());
+                        int y = Math.round(e.getY());
+                        handleItemTap(x, y, TapType.LONG_CLICK);
                     }
 
                     @Override
                     public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
                         awakenScrollBars();
-                        return startFling(-velocityX * VELOCITY_X_RATIO);
+                        startFling(-velocityX * VELOCITY_X_RATIO);
+                        if (Math.abs(velocityX) > Math.abs(velocityY)) {
+                            mMovingDistance = mTouchSlope + 1;
+                            return true;
+                        } else
+                            return false;
                     }
                 });
         gestureDetector.setIsLongpressEnabled(false);
@@ -227,6 +250,17 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
     @Override
     public boolean addViewInLayout(View child, int index, LayoutParams params, boolean preventRequestLayout) {
         return super.addViewInLayout(child, index, params, preventRequestLayout);
+    }
+
+    @Override
+    public void setOnItemLongClickListener(OnItemLongClickListener listener) {
+        super.setOnItemLongClickListener(listener);
+        mGestureDetector.setIsLongpressEnabled(listener != null);
+    }
+
+    @Override
+    protected void dispatchSetPressed(boolean pressed) {
+        // Do not dispatch press state to the children. The list view is responsible for setting press state
     }
 
     private int findItemInfoIndexByXY(int x, int y) {
@@ -341,7 +375,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
 
         ItemInfoManager itemsManager = mItemsManager;
         ArrayList<ItemInfo> items = mItems;
-        int nextItemIndex = mFirstGlobalItemIndex + items.size();;
+        int nextItemIndex = mFirstGlobalItemIndex + items.size();
         int countGlobalItems = itemsManager.getItemInfoCount();
         int currentRight = firstItemX - dX + getDisplayedItemsFullWidth();
 
@@ -591,10 +625,12 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
 
 
         int firstGlobalItemIndex = mFirstGlobalItemIndex;
+        if (firstGlobalItemIndex > globalItemsCount)
+            firstGlobalItemIndex = globalItemsCount;
         int currentIndex = firstGlobalItemIndex;
 
-        while (currentRight < viewWidthWithoutPadding
-                && currentIndex < globalItemsCount) {
+        while (  currentRight < viewWidthWithoutPadding
+              && currentIndex < globalItemsCount) {
             int listItemIndex = currentIndex - firstGlobalItemIndex;
             ItemInfo currentItem;
             if (listItemIndex < items.size())
@@ -648,8 +684,8 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
     private void drawEdges(Canvas canvas) {
         int overscrollMode = ViewCompat.getOverScrollMode(this);
 
-        if (overscrollMode == ViewCompat.OVER_SCROLL_ALWAYS
-                || overscrollMode == ViewCompat.OVER_SCROLL_IF_CONTENT_SCROLLS) {
+        if (  overscrollMode == ViewCompat.OVER_SCROLL_ALWAYS
+           || overscrollMode == ViewCompat.OVER_SCROLL_IF_CONTENT_SCROLLS) {
             boolean doInvalidate = false;
             EdgeEffectCompat leftEdge = mLeftFadingEdge;
             if (!leftEdge.isFinished())
@@ -664,17 +700,21 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
     }
 
     @Override
-    protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
+    protected void dispatchDraw(Canvas canvas) {
+        super.dispatchDraw(canvas);
         drawEdges(canvas);
     }
 
     @Override
+    public boolean onInterceptTouchEvent(MotionEvent ev) {
+        if ((ev.getAction() & MotionEvent.ACTION_MASK) == MotionEvent.ACTION_DOWN)
+            mGestureDetector.onTouchEvent(ev);
+        return mTouchInterceptionDetector.doInterception(ev);
+    }
+
+    @Override
     public boolean onTouchEvent(MotionEvent event) {
-        boolean interceptParentEvents = mTouchInterceptionDetector.doInterception(event);
-        if (interceptParentEvents)
-            getParent().requestDisallowInterceptTouchEvent(interceptParentEvents);
-        return mGestureDetector.onTouchEvent(event);
+        return mGestureDetector.onTouchEvent(event) || super.onTouchEvent(event);
     }
 
     @Override
@@ -730,21 +770,20 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         return true;
     }
 
-    private void handleItemTap(int x, int y) {
-        if (!isTapItemAvailable())
-            return;
+    private boolean handleItemTap(int x, int y, TapType tapType) {
+        if (  !isTapItemAvailable()
+           || !tapType.isAvailable(this))
+            return false;
 
         int tappedItemIndex = findItemInfoIndexByXY(x, y);
         if (tappedItemIndex == -1)
-            return;
+            return false;
 
         ItemInfo tappedItem = mItems.get(tappedItemIndex);
         int adapterIndex = tappedItem.findAdapterItemIndex(mFirstGlobalItemIndex + tappedItemIndex, x, y);
         View adapterView = tappedItem.findAdapterViewItem(x, y);
 
-        OnItemClickListener clickListener = getOnItemClickListener();
-        if (clickListener != null)
-            clickListener.onItemClick(this, adapterView, adapterIndex, 0);
+        return tapType.handleTap(this, adapterView, adapterIndex, 0);
     }
 
     protected abstract static class ItemInfo {
@@ -845,6 +884,37 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         public boolean isRecyclingAvailable() {
             return mIsRecyclingAvailable;
         }
+    }
+
+    private enum TapType {
+        CLICK {
+            @Override
+            public boolean isAvailable(AdapterView listView) {
+                return listView.getOnItemClickListener() != null;
+            }
+
+            @Override
+            public boolean handleTap(AdapterView listView, View view, int index, long id) {
+                OnItemClickListener listener = listView.getOnItemClickListener();
+                listener.onItemClick(listView, view, index, id);
+                return true;
+            }
+        },
+        LONG_CLICK {
+            @Override
+            public boolean isAvailable(AdapterView listView) {
+                return listView.getOnItemLongClickListener() != null;
+            }
+
+            @Override
+            public boolean handleTap(AdapterView listView, View view, int index, long id) {
+                OnItemLongClickListener listener = listView.getOnItemLongClickListener();
+                return listener.onItemLongClick(listView, view, index, id);
+            }
+        };
+
+        public abstract boolean isAvailable(AdapterView listView);
+        public abstract boolean handleTap(AdapterView listView, View view, int index, long id);
     }
 
     protected static class ViewCache {
@@ -952,12 +1022,16 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         }
     }
 
-    private static class ListState extends BaseSavedState {
+    public static class ListState extends BaseSavedState {
         private int mFirstItemIndex;
         private int mFirstItemOffset;
 
         public ListState(Parcelable parcelable) {
             super(parcelable);
+        }
+
+        public ListState() {
+            super(BaseSavedState.EMPTY_STATE);
         }
 
         public void setFirstItemIndex(int firstItemIndex) {

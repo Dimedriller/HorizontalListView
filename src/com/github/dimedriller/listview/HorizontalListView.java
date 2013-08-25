@@ -665,15 +665,14 @@ public class HorizontalListView extends HorizontalAbsListView {
 
             int updateDelta = makeSteps(interpolatedTime);
 
-            if (updateDelta > 0) // If total items width is increased than remove invisible items on right
+            if (updateDelta > 0)
                 removeItemsRight(0);
             else if (updateDelta < 0){ // If total items width is decreased than add items on right if possible
-                int deltaDiff = addItemsRight(updateDelta) - updateDelta;
+                addItemsRight(0);
 
-                if (deltaDiff > 0) { // If visible part of list is at the end and if a visible item is removed
-                    int newDeltaDiff = addItemsLeft(-deltaDiff); // than do mLeft side correction to adjust visible
-                    shiftItems(-newDeltaDiff); // items on right side
-                }
+                int newUpdateDelta = addItemsLeft(updateDelta); // If visible part of list is at the end and if a
+                shiftItems(-newUpdateDelta); // visible item is removed than do mLeft side correction to adjust visible
+                                             // items on right side
             }
 
             if (interpolatedTime == 1.0f) {
