@@ -277,30 +277,6 @@ public class HorizontalListView extends HorizontalAbsListView {
         if (items.size() == 0)
             return;
 
-        int layoutRight = items.get(0).getLeft();
-        int leftItemsWidth = 0;
-        while (  viewWidth > itemsFullWidth
-              && adapterOffset > 0) {
-            adapterOffset--;
-            ItemInfo insertedItem = itemsManager.createItemInfo(this, adapterOffset);
-            insertedItem.measureViews(getWidthWithoutPaddings(), getHeightWithoutPaddings());
-
-            itemsFullWidth += insertedItem.getWidth();
-            leftItemsWidth += insertedItem.getWidth();
-            layoutRight -= insertedItem.getWidth();
-            items.add(0, insertedItem);
-            insertedItem.layoutViews(layoutRight, paddingLeft, getPaddingTop());
-        }
-
-        if (leftItemsWidth > 0) {
-            int moveLeftX;
-            if (itemsFullWidth > viewWidth)
-                moveLeftX = leftItemsWidth - itemsFullWidth + viewWidth;
-            else
-                moveLeftX = leftItemsWidth;
-            updateSteps.add(0, new MoveStep(moveLeftX));
-        }
-
         mFirstGlobalItemIndex = adapterOffset;
         mInsertDeleteAction = new InsertDeleteAction(updateSteps, mExpandCollapseDuration);
         postDelayed(mInsertDeleteAction, mExpandCollapseDelay);
@@ -352,7 +328,7 @@ public class HorizontalListView extends HorizontalAbsListView {
 
         @Override
         public void addItemViews(HorizontalAbsListView parent) {
-            ViewGroup.LayoutParams params = mView.getLayoutParams();
+            LayoutParams params = mView.getLayoutParams();
             if (params == null) {
                 params = parent.generateDefaultLayoutParams();
                 mView.setLayoutParams(params);
@@ -561,42 +537,6 @@ public class HorizontalListView extends HorizontalAbsListView {
         }
     }
 
-    private class MoveStep implements UpdateStep {
-        private final int mTotalOffset;
-
-        private int mPreviousOffset;
-
-        private MoveStep(int offset) {
-            mTotalOffset = offset;
-        }
-
-        @Override
-        public void start() {
-            mPreviousOffset = 0;
-        }
-
-        @Override
-        public int makeStep(float interpolatedTime) {
-            int currentOffset = Math.round(interpolatedTime * mTotalOffset);
-            int delta = currentOffset - mPreviousOffset;
-            mPreviousOffset = currentOffset;
-
-            shiftItems(delta);
-
-            return delta;
-        }
-
-        @Override
-        public boolean isValid() {
-            return true;
-        }
-
-        @Override
-        public void finish() {
-            // No action
-        }
-    }
-
     private class InsertDeleteAction implements Runnable {
         private final ArrayList<UpdateStep> mUpdateSteps;
         private final long mStartTime;
@@ -670,9 +610,12 @@ public class HorizontalListView extends HorizontalAbsListView {
             else if (updateDelta < 0){ // If total items width is decreased than add items on right if possible
                 addItemsRight(0);
 
-                int newUpdateDelta = addItemsLeft(updateDelta); // If visible part of list is at the end and if a
-                shiftItems(-newUpdateDelta); // visible item is removed than do mLeft side correction to adjust visible
-                                             // items on right side
+                int lastItemRight = getLastItemRight();
+                int viewWidth = getWidthWithoutPaddings();
+                if (lastItemRight < viewWidth) { // If visible part of list is at the end and if a visible item is
+                    int newUpdateDelta = addItemsLeft(lastItemRight - viewWidth); // removed than do mLeft side
+                    shiftItems(-newUpdateDelta); // correction to adjust visible items on right side
+                }
             }
 
             if (interpolatedTime == 1.0f) {

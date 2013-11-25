@@ -285,12 +285,21 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         removeCallbacks(mMoveRunnable);
     }
 
-    private int getFirstItemOffset() {
+    protected int getFirstItemOffset() {
         ArrayList<ItemInfo> items = mItems;
         if (items.size() == 0)
             return 0;
         else
             return items.get(0).getLeft();
+    }
+
+    protected int getLastItemRight() {
+        ArrayList<ItemInfo> items = mItems;
+        int numItems = items.size();
+        if (numItems == 0)
+            return 0;
+        else
+            return items.get(numItems - 1).getRight();
     }
 
     protected int getWidthWithoutPaddings() {
