@@ -1,20 +1,19 @@
-package com.github.dimedriller.listview;
+package com.dimedriller.alternativeui.listview;
 
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.database.DataSetObserver;
 import android.util.AttributeSet;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.widget.Adapter;
-import com.github.dimedriller.R;
-import com.github.dimedriller.listview.diff.DeleteDiffAtom;
-import com.github.dimedriller.listview.diff.DiffAnalyser;
-import com.github.dimedriller.listview.diff.DiffAtom;
-import com.github.dimedriller.listview.diff.InsertDiffAtom;
-import com.github.dimedriller.log.Log;
+import com.dimedriller.alternativeui.R;
+import com.dimedriller.alternativeui.listview.diff.DeleteDiffAtom;
+import com.dimedriller.alternativeui.listview.diff.DiffAnalyser;
+import com.dimedriller.alternativeui.listview.diff.DiffAtom;
+import com.dimedriller.alternativeui.listview.diff.InsertDiffAtom;
+import com.dimedriller.alternativeui.log.Log;
 
 import java.util.ArrayList;
 

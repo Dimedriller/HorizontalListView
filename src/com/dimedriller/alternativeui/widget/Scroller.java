@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-package com.github.dimedriller.widget;
+package com.dimedriller.alternativeui.widget;
 
 import android.content.Context;
 import android.hardware.SensorManager;
-import android.os.Build;
 import android.util.FloatMath;
 import android.view.ViewConfiguration;
 import android.view.animation.AnimationUtils;

@@ -1,4 +1,4 @@
-package com.github.dimedriller.log;
+package com.dimedriller.alternativeui.log;
 
 @SuppressWarnings("StringBufferMayBeStringBuilder")
 public class Log {

@@ -1,4 +1,4 @@
-package com.github.dimedriller.listview.diff;
+package com.dimedriller.alternativeui.listview.diff;
 
 /**
  ***********************************************************************************************************************

@@ -1,4 +1,4 @@
-package com.github.dimedriller.listview;
+package com.dimedriller.alternativeui.listview;
 
 import android.content.Context;
 import android.content.res.TypedArray;
@@ -13,10 +13,10 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.widget.Adapter;
 import android.widget.AdapterView;
-import com.github.dimedriller.R;
-import com.github.dimedriller.widget.GestureDetector;
-import com.github.dimedriller.widget.Scroller;
-import com.github.dimedriller.widget.TouchInterceptionDetector;
+import com.dimedriller.alternativeui.R;
+import com.dimedriller.alternativeui.widget.GestureDetector;
+import com.dimedriller.alternativeui.widget.Scroller;
+import com.dimedriller.alternativeui.widget.TouchInterceptionDetector;
 
 import java.util.ArrayList;
 

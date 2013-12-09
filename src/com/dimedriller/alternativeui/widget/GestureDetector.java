@@ -1,4 +1,4 @@
-package com.github.dimedriller.widget;
+package com.dimedriller.alternativeui.widget;
 
 import android.content.Context;
 import android.view.MotionEvent;
