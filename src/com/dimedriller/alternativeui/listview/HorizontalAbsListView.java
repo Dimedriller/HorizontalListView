@@ -25,14 +25,14 @@ import java.util.ArrayList;
  * This class is base class to provide horizontal list view scrolling logic
  ***********************************************************************************************************************
  */
-public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
+public abstract class HorizontalAbsListView<A extends Adapter> extends AdapterView<A> {
     protected int mFirstGlobalItemIndex;
     protected ArrayList<ItemInfo> mItems;
 
     /* This field is used only when state is restored */
     private int mFirstItemOffset;
 
-    private ItemInfoManager mItemsManager;
+    private ItemInfoManager<A> mItemsManager;
 
     private final Scroller mScroller;
     private final GestureDetector mGestureDetector;
@@ -184,7 +184,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
      * Creates instance of {@code ItemInfoManager} for specific scion of this class
      *******************************************************************************************************************
      */
-    protected abstract ItemInfoManager createItemInfoManager(Adapter adapter);
+    protected abstract ItemInfoManager<A> createItemInfoManager(A adapter);
 
     /**
      *******************************************************************************************************************
@@ -196,7 +196,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
     }
 
     @Override
-    public void setAdapter(Adapter adapter) {
+    public void setAdapter(A adapter) {
         mItemsManager = createItemInfoManager(adapter);
 
         removeAllViewsInLayout();
@@ -207,7 +207,7 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
     }
 
     @Override
-    public Adapter getAdapter() {
+    public A getAdapter() {
         return mItemsManager.getAdapter();
     }
 
@@ -962,12 +962,12 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         }
     }
 
-    protected static abstract class ItemInfoManager {
-        private final Adapter mAdapter;
+    protected static abstract class ItemInfoManager<A extends Adapter> {
+        private final A mAdapter;
         private final ViewCache mViewCache;
         private final ArrayList<ItemInfo> mItemsCache;
 
-        protected ItemInfoManager(Adapter adapter) {
+        protected ItemInfoManager(A adapter) {
             int viewTypesCount;
             if (adapter == null)
                 viewTypesCount = 0;
@@ -978,14 +978,14 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
             mItemsCache = new ArrayList<ItemInfo>();
         }
 
-        public Adapter getAdapter() {
+        public A getAdapter() {
             return mAdapter;
         }
 
-        protected abstract int onGetItemInfoCount(Adapter adapter);
+        protected abstract int onGetItemInfoCount(A adapter);
 
         public int getItemInfoCount() {
-            Adapter adapter = mAdapter;
+            A adapter = mAdapter;
             if (adapter == null)
                 return 0;
             else

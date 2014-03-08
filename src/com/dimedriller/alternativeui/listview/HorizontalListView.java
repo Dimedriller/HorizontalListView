@@ -22,7 +22,7 @@ import java.util.ArrayList;
  * This class is designed to display horizontal list view of elements
  ***********************************************************************************************************************
  */
-public class HorizontalListView extends HorizontalAbsListView {
+public class HorizontalListView<A extends Adapter> extends HorizontalAbsListView<A> {
     private static final int DEFAULT_EXPAND_COLLAPSE_DURATION = 300;
     private static final int DEFAULT_EXPAND_COLLAPSE_DELAY = 0;
 
@@ -95,12 +95,12 @@ public class HorizontalListView extends HorizontalAbsListView {
     }
 
     @Override
-    protected ItemInfoManager createItemInfoManager(Adapter adapter) {
-        return new ListItemInfoManager(adapter);
+    protected ItemInfoManager<A> createItemInfoManager(A adapter) {
+        return new ListItemInfoManager<A>(adapter);
     }
 
     @Override
-    public void setAdapter(Adapter adapter) {
+    public void setAdapter(A adapter) {
         Log.dh(this);
 
         if (mInsertDeleteAction != null) {
@@ -119,7 +119,7 @@ public class HorizontalListView extends HorizontalAbsListView {
             mPostponedLayoutUpdate = null;
         }
 
-        Adapter oldAdapter = getAdapter();
+        A oldAdapter = getAdapter();
         if (oldAdapter != null)
             oldAdapter.unregisterDataSetObserver(mDataSetObserver);
 
@@ -420,13 +420,13 @@ public class HorizontalListView extends HorizontalAbsListView {
         }
     }
 
-    protected static class ListItemInfoManager extends ItemInfoManager {
-        public ListItemInfoManager(Adapter adapter) {
+    protected static class ListItemInfoManager<A extends Adapter> extends ItemInfoManager<A> {
+        public ListItemInfoManager(A adapter) {
             super(adapter);
         }
 
         @Override
-        protected int onGetItemInfoCount(Adapter adapter) {
+        protected int onGetItemInfoCount(A adapter) {
             return adapter.getCount();
         }
 
