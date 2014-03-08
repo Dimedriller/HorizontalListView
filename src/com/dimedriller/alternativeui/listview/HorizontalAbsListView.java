@@ -225,15 +225,12 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
     @Override
     protected Parcelable onSaveInstanceState() {
         Parcelable parcelable = super.onSaveInstanceState();
-        ListState listState = new ListState(parcelable);
-        listState.setFirstItemIndex(mFirstGlobalItemIndex);
-        listState.setFirstItemOffset(getFirstItemOffset());
-        return listState;
+        return new AbsListState(parcelable, mFirstGlobalItemIndex, getFirstItemOffset());
     }
 
     @Override
     protected void onRestoreInstanceState(Parcelable state) {
-        ListState listState = (ListState) state;
+        AbsListState listState = (AbsListState) state;
         super.onRestoreInstanceState(listState.getSuperState());
         mFirstGlobalItemIndex = listState.getFirstItemIndex();
         mFirstItemOffset = listState.getFirstItemOffset();
@@ -1031,32 +1028,5 @@ public abstract class HorizontalAbsListView extends AdapterView<Adapter> {
         }
     }
 
-    public static class ListState extends BaseSavedState {
-        private int mFirstItemIndex;
-        private int mFirstItemOffset;
 
-        public ListState(Parcelable parcelable) {
-            super(parcelable);
-        }
-
-        public ListState() {
-            super(BaseSavedState.EMPTY_STATE);
-        }
-
-        public void setFirstItemIndex(int firstItemIndex) {
-            mFirstItemIndex = firstItemIndex;
-        }
-
-        public int getFirstItemIndex() {
-            return mFirstItemIndex;
-        }
-
-        private void setFirstItemOffset(int firstItemOffset) {
-            mFirstItemOffset = firstItemOffset;
-        }
-
-        private int getFirstItemOffset() {
-            return mFirstItemOffset;
-        }
-    }
 }
